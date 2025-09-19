@@ -14,15 +14,30 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
 }
 
-// Đảm bảo URL có chứa sslmode=require
-const ensureSslMode = (url: string): string => {
-  if (!url.includes('sslmode=')) {
-    return url + (url.includes('?') ? '&' : '?') + 'sslmode=require';
+// Hàm xử lý URL kết nối
+const getConnectionString = (): string => {
+  let dbUrl = process.env.DATABASE_URL || '';
+  
+  // Xử lý trường hợp DATABASE_URL bị bọc trong dấu nháy
+  if (dbUrl.startsWith('"') && dbUrl.endsWith('"')) {
+    dbUrl = dbUrl.slice(1, -1);
   }
-  return url;
+  
+  // Xử lý trường hợp có dạng DATABASE_URL=value...
+  if (dbUrl.startsWith('DATABASE_URL=')) {
+    dbUrl = dbUrl.replace('DATABASE_URL=', '');
+  }
+  
+  // Thêm sslmode=require nếu chưa có
+  if (!dbUrl.includes('sslmode=')) {
+    dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'sslmode=require';
+  }
+  
+  console.log('Final connection string:', dbUrl.replace(/:[^:]*?@/, ':***@'));
+  return dbUrl;
 };
 
-const connectionString = ensureSslMode(process.env.DATABASE_URL);
+const connectionString = getConnectionString();
 
 const isProduction = process.env.NODE_ENV === 'production';
 console.log(`Running in ${isProduction ? 'production' : 'development'} mode`);
