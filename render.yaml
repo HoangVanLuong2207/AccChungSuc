@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: account-management-app
+    env: node
+    region: singapore
+    plan: free
+    rootDir: .
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/accounts/stats
+    preDeployCommand: npm run db:push
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: postgresql://root:1ExOZk7EVyqjIxO3XWofcyaKEYUfnwiq@dpg-d35r6gjlpnbc739ndt0-a.oregon-postgres.render.com/cloneacc_148x
+      - key: PGHOST
+        value: dpg-d35r6gjlpnbc739ndt0-a.oregon-postgres.render.com
+      - key: PGPORT
+        value: 5432
+      - key: PGDATABASE
+        value: cloneacc_148x
+      - key: PGUSER
+        value: root
+      - key: PGPASSWORD
+        value: 1ExOZk7EVyqjIxO3XWofcyaKEYUfnwiq

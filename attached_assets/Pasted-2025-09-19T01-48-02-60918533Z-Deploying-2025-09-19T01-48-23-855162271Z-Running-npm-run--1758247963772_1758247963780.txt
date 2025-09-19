@@ -1,0 +1,82 @@
+2025-09-19T01:48:02.60918533Z ==> Deploying...
+2025-09-19T01:48:23.855162271Z ==> Running 'npm run start'
+2025-09-19T01:48:24.943283309Z 
+2025-09-19T01:48:24.94334453Z > rest-express@1.0.0 start
+2025-09-19T01:48:24.943352211Z > NODE_ENV=production node dist/index.js
+2025-09-19T01:48:24.943354491Z 
+2025-09-19T01:48:31.74443502Z 1:48:31 AM [express] serving on port 10000
+2025-09-19T01:48:33.350222267Z ==> Your service is live 🎉
+2025-09-19T01:48:33.381680944Z ==> 
+2025-09-19T01:48:33.411629522Z ==> ///////////////////////////////////////////////////////////
+2025-09-19T01:48:33.441515609Z ==> 
+2025-09-19T01:48:33.471485617Z ==> Available at your primary URL https://clonechungsuc.onrender.com
+2025-09-19T01:48:33.501270704Z ==> 
+2025-09-19T01:48:33.532402481Z ==> ///////////////////////////////////////////////////////////
+2025-09-19T01:49:29.945722369Z 1:49:29 AM [express] GET /api/accounts/stats 500 in 95ms :: {"message":"Failed to fetch statistics"}
+2025-09-19T01:49:29.946665523Z 1:49:29 AM [express] GET /api/accounts 500 in 262ms :: {"message":"Failed to fetch accounts"}
+2025-09-19T01:49:41.695273Z Successfully parsed accounts: 3 items
+2025-09-19T01:49:41.747788677Z 1:49:41 AM [express] POST /api/accounts/import 200 in 58ms :: {"imported":0,"errors":3,"accounts":[]…
+2025-09-19T01:49:41.990300681Z 1:49:41 AM [express] GET /api/accounts 500 in 4ms :: {"message":"Failed to fetch accounts"}
+2025-09-19T01:49:41.994878437Z 1:49:41 AM [express] GET /api/accounts/stats 500 in 4ms :: {"message":"Failed to fetch statistics"}
+2025-09-19T01:54:07.450278676Z Deploy cancelled
+2025-09-19T01:55:15.159400058Z ==> Deploying...
+2025-09-19T01:55:33.342323575Z ==> Running 'npm run start'
+2025-09-19T01:55:34.336387869Z 
+2025-09-19T01:55:34.336417049Z > rest-express@1.0.0 start
+2025-09-19T01:55:34.33644477Z > NODE_ENV=production node dist/index.js
+2025-09-19T01:55:34.33645198Z 
+2025-09-19T01:55:41.239830008Z 1:55:41 AM [express] serving on port 10000
+2025-09-19T01:55:45.914278205Z ==> Your service is live 🎉
+2025-09-19T01:55:45.947134662Z ==> 
+2025-09-19T01:55:45.975602609Z ==> ///////////////////////////////////////////////////////////
+2025-09-19T01:55:46.007260507Z ==> 
+2025-09-19T01:55:46.037729364Z ==> Available at your primary URL https://clonechungsuc.onrender.com
+2025-09-19T01:55:46.067003972Z ==> 
+2025-09-19T01:55:46.095399259Z ==> ///////////////////////////////////////////////////////////
+2025-09-19T01:56:11.642746401Z 1:56:11 AM [express] POST /api/accounts/import 200 in 67ms :: {"imported":0,"errors":3,"accounts":[]…
+2025-09-19T01:56:11.879786588Z 1:56:11 AM [express] GET /api/accounts/stats 500 in 6ms :: {"message":"Failed to fetch statistics"}
+2025-09-19T01:56:11.88582392Z 1:56:11 AM [express] GET /api/accounts 500 in 4ms :: {"message":"Failed to fetch accounts"}
+2025-09-19T02:00:49.313259549Z ==> Detected service running on port 10000
+2025-09-19T02:00:49.400713938Z ==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
+2025-09-19T02:03:28.683378062Z ==> Deploying...
+2025-09-19T02:03:47.644957843Z ==> Running 'npm run start'
+2025-09-19T02:03:48.83770795Z 
+2025-09-19T02:03:48.83773044Z > rest-express@1.0.0 start
+2025-09-19T02:03:48.83773435Z > NODE_ENV=production node dist/index.js
+2025-09-19T02:03:48.83773603Z 
+2025-09-19T02:03:56.237790493Z 2:03:56 AM [express] serving on port 10000
+2025-09-19T02:03:59.499790297Z ==> Your service is live 🎉
+2025-09-19T02:03:59.538607194Z ==> 
+2025-09-19T02:03:59.570031631Z ==> ///////////////////////////////////////////////////////////
+2025-09-19T02:03:59.599570329Z ==> 
+2025-09-19T02:03:59.629742626Z ==> Available at your primary URL https://clonechungsuc.onrender.com
+2025-09-19T02:03:59.659668164Z ==> 
+2025-09-19T02:03:59.922932061Z ==> ///////////////////////////////////////////////////////////
+2025-09-19T02:04:04.437017066Z 2:04:04 AM [express] GET /api/accounts 500 in 94ms :: {"message":"Failed to fetch accounts"}
+2025-09-19T02:04:04.438041382Z 2:04:04 AM [express] GET /api/accounts/stats 500 in 254ms :: {"message":"Failed to fetch statistics"}
+2025-09-19T02:04:17.509996445Z Successfully parsed accounts: 3 items
+2025-09-19T02:04:17.539710919Z 2:04:17 AM [express] POST /api/accounts/import 200 in 36ms :: {"imported":0,"errors":3,"accounts":[]…
+2025-09-19T02:04:17.752693477Z 2:04:17 AM [express] GET /api/accounts/stats 500 in 6ms :: {"message":"Failed to fetch statistics"}
+2025-09-19T02:04:17.762718882Z 2:04:17 AM [express] GET /api/accounts 500 in 5ms :: {"message":"Failed to fetch accounts"}
+2025-09-19T02:08:41.66206173Z ==> Deploying...
+2025-09-19T02:09:00.416870938Z ==> Running 'npm run start'
+2025-09-19T02:09:01.518212679Z 
+2025-09-19T02:09:01.51824562Z > rest-express@1.0.0 start
+2025-09-19T02:09:01.51825027Z > NODE_ENV=production node dist/index.js
+2025-09-19T02:09:01.51825248Z 
+2025-09-19T02:09:08.714505009Z 2:09:08 AM [express] serving on port 10000
+2025-09-19T02:09:13.305999471Z ==> Your service is live 🎉
+2025-09-19T02:09:13.337869668Z ==> 
+2025-09-19T02:09:13.367318416Z ==> ///////////////////////////////////////////////////////////
+2025-09-19T02:09:13.396418883Z ==> 
+2025-09-19T02:09:13.427661631Z ==> Available at your primary URL https://clonechungsuc.onrender.com
+2025-09-19T02:09:13.457732158Z ==> 
+2025-09-19T02:09:13.487525446Z ==> ///////////////////////////////////////////////////////////
+2025-09-19T02:09:46.358025738Z 2:09:46 AM [express] GET /api/accounts/stats 500 in 337ms :: {"message":"Failed to fetch statistics"}
+2025-09-19T02:09:46.35982351Z 2:09:46 AM [express] GET /api/accounts 500 in 135ms :: {"message":"Failed to fetch accounts"}
+2025-09-19T02:10:24.215388818Z 2:10:24 AM [express] GET /api/accounts 500 in 4ms :: {"message":"Failed to fetch accounts"}
+2025-09-19T02:10:24.216281904Z 2:10:24 AM [express] GET /api/accounts/stats 500 in 10ms :: {"message":"Failed to fetch statistics"}
+2025-09-19T02:10:41.536310079Z Successfully parsed accounts: 3 items
+2025-09-19T02:10:41.550244508Z 2:10:41 AM [express] POST /api/accounts/import 200 in 18ms :: {"imported":0,"errors":3,"accounts":[]…
+2025-09-19T02:10:41.779407938Z 2:10:41 AM [express] GET /api/accounts 500 in 5ms :: {"message":"Failed to fetch accounts"}
+2025-09-19T02:10:42.146009777Z 2:10:42 AM [express] GET /api/accounts/stats 500 in 5ms :: {"message":"Failed to fetch statistics"}

@@ -1,0 +1,26 @@
+2025-09-19T02:28:35.700283702Z ==> Downloading cache...
+2025-09-19T02:28:35.702254056Z ==> It looks like we don't have access to your repo, but we'll try to clone it anyway.
+2025-09-19T02:28:35.702277966Z ==> Cloning from https://github.com/HoangVanLuong2207/CloneChungSuc
+2025-09-19T02:28:36.282104392Z ==> Checking out commit 92733247d77bef59cab97eeeb52b3e5c414eb4e9 in branch main
+2025-09-19T02:28:52.250753423Z ==> Transferred 199MB in 8s. Extraction took 4s.
+2025-09-19T02:29:04.119429317Z ==> Using Node.js version 22.16.0 (default)
+2025-09-19T02:29:04.146423883Z ==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+2025-09-19T02:29:04.224549563Z ==> Running build command 'npm install; npm run build'...
+2025-09-19T02:29:05.980436637Z npm error code ENOENT
+2025-09-19T02:29:05.980621402Z npm error syscall open
+2025-09-19T02:29:05.980644943Z npm error path /opt/render/project/src/package.json
+2025-09-19T02:29:05.980756666Z npm error errno -2
+2025-09-19T02:29:05.980833018Z npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/opt/render/project/src/package.json'
+2025-09-19T02:29:05.980915861Z npm error enoent This is related to npm not being able to find a file.
+2025-09-19T02:29:05.980924751Z npm error enoent
+2025-09-19T02:29:05.98201451Z npm error A complete log of this run can be found in: /opt/render/.cache/_logs/2025-09-19T02_29_04_301Z-debug-0.log
+2025-09-19T02:29:06.154747779Z npm error code ENOENT
+2025-09-19T02:29:06.154954385Z npm error syscall open
+2025-09-19T02:29:06.154981325Z npm error path /opt/render/project/src/package.json
+2025-09-19T02:29:06.155105599Z npm error errno -2
+2025-09-19T02:29:06.15516994Z npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/opt/render/project/src/package.json'
+2025-09-19T02:29:06.155188641Z npm error enoent This is related to npm not being able to find a file.
+2025-09-19T02:29:06.155195681Z npm error enoent
+2025-09-19T02:29:06.156208659Z npm error A complete log of this run can be found in: /opt/render/.cache/_logs/2025-09-19T02_29_06_106Z-debug-0.log
+2025-09-19T02:29:06.174551269Z ==> Build failed 😞
+2025-09-19T02:29:06.17457692Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
