@@ -11,6 +11,7 @@ interface IStorage {
   deleteAllAccounts(): Promise<number>;
   getAccountStats(): Promise<{ total: number; active: number; inactive: number }>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  updateAllAccountStatuses(status: boolean): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -115,6 +116,22 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error in getUserByUsername:', error);
       throw new Error('Failed to fetch user from database');
+    }
+  }
+
+  async updateAllAccountStatuses(status: boolean): Promise<number> {
+    try {
+      // Perform bulk update
+      await db.update(accounts).set({ status });
+      // Return how many currently have this status (approximation of affected rows)
+      const [row] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(accounts)
+        .where(eq(accounts.status, status));
+      return row?.count ?? 0;
+    } catch (error) {
+      console.error('Error in updateAllAccountStatuses:', error);
+      throw new Error('Failed to update all account statuses');
     }
   }
 }

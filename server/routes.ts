@@ -41,6 +41,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update all account statuses
+  app.patch("/api/accounts/status-all", isAuthenticated, async (req, res) => {
+    try {
+      const body = z.object({ status: z.boolean() }).parse(req.body);
+      const updatedCount = await storage.updateAllAccountStatuses(body.status);
+      res.json({ updated: updatedCount, status: body.status });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update all account statuses" });
+      }
+    }
+  });
+
   app.post("/api/logout", (req, res) => {
     req.session.destroy((err) => {
       if (err) {
