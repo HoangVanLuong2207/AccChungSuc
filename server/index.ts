@@ -10,6 +10,10 @@ import { setupVite, serveStatic, log } from "./vite";
 console.log('DATABASE_URL:', process.env.DATABASE_URL ? '***[HIDDEN]***' : 'Not set');
 
 const app = express();
+
+// Trust the first proxy
+app.set('trust proxy', 1);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
