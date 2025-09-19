@@ -1,6 +1,10 @@
+import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+
+// Log để kiểm tra biến môi trường
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? '***[HIDDEN]***' : 'Not set');
 
 const app = express();
 app.use(express.json());
