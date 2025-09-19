@@ -11,9 +11,11 @@ interface ImportSectionProps {
     active: number;
     inactive: number;
   };
+  onUpdateAll?: (status: boolean) => void;
+  isUpdatingAll?: boolean;
 }
 
-export default function ImportSection({ onImport, isImporting, stats }: ImportSectionProps) {
+export default function ImportSection({ onImport, isImporting, stats, onUpdateAll, isUpdatingAll }: ImportSectionProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -111,6 +113,30 @@ export default function ImportSection({ onImport, isImporting, stats }: ImportSe
                 {stats?.inactive || 0}
               </span>
             </div>
+            {onUpdateAll && (
+              <div className="flex items-center justify-between gap-2 pt-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-1/2"
+                  style={{ backgroundColor: 'springgreen', color: 'white' }}
+                  onClick={() => onUpdateAll(true)}
+                  disabled={isUpdatingAll}
+                >
+                  {isUpdatingAll ? 'Đang bật...' : 'ON all'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-1/2"
+                  style={{ backgroundColor: '#DC143C', color: 'white' }}
+                  onClick={() => onUpdateAll(false)}
+                  disabled={isUpdatingAll}
+                >
+                  {isUpdatingAll ? 'Đang tắt...' : 'OFF all'}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>

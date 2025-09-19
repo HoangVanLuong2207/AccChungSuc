@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -29,10 +29,35 @@ export default function Dashboard() {
   const [isDeleteMultipleModalOpen, setDeleteMultipleModalOpen] = useState(false);
   const [isDeleteAll, setDeleteAll] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; errors: number; errorDetails: any[] } | null>(null);
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
 
   // Fetch accounts
   const { data: accounts = [], isLoading } = useQuery<Account[]>({
     queryKey: ['/api/accounts']
+  });
+
+  // Update all account statuses mutation
+  const updateAllStatusesMutation = useMutation({
+    mutationFn: async (status: boolean) => {
+      await apiRequest('PATCH', '/api/accounts/status-all', { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
+      toast({
+        title: 'Thành công',
+        description: 'Đã cập nhật trạng thái cho toàn bộ tài khoản',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể cập nhật trạng thái toàn bộ',
+        variant: 'destructive',
+      });
+    },
   });
 
   // Fetch statistics
@@ -203,6 +228,19 @@ export default function Dashboard() {
     return matchesSearch && matchesStatus;
   });
 
+  // Reset to first page when filters/search change
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter]);
+
+  // Slice per page
+  const totalCount = filteredAccounts.length;
+  const startIndex = (page - 1) * pageSize;
+  const limitedAccounts = filteredAccounts.slice(startIndex, startIndex + pageSize);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const canPrev = page > 1;
+  const canNext = page < totalPages;
+
   return (
     <div className="container mx-auto px-6 py-8 max-w-7xl">
       {/* Page Header */}
@@ -223,12 +261,14 @@ export default function Dashboard() {
           onImport={handleImport}
           isImporting={importAccountsMutation.isPending}
           stats={stats}
+          onUpdateAll={(status: boolean) => updateAllStatusesMutation.mutate(status)}
+          isUpdatingAll={updateAllStatusesMutation.isPending}
         />
 
         {/* Accounts Table */}
         <div className="lg:col-span-3">
           <AccountTable
-            accounts={filteredAccounts}
+            accounts={limitedAccounts}
             isLoading={isLoading}
             searchTerm={searchTerm}
             statusFilter={statusFilter}
@@ -242,6 +282,13 @@ export default function Dashboard() {
             onSelectedAccountsChange={setSelectedAccounts}
             onDeleteSelected={handleDeleteSelected}
             onDeleteAll={handleDeleteAll}
+            totalCount={totalCount}
+            page={page}
+            pageSize={pageSize}
+            canPrev={canPrev}
+            canNext={canNext}
+            onPrevPage={() => canPrev && setPage((p) => p - 1)}
+            onNextPage={() => canNext && setPage((p) => p + 1)}
           />
         </div>
       </div>

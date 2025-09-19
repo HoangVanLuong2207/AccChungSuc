@@ -21,6 +21,13 @@ interface AccountTableProps {
   onSelectedAccountsChange: (selectedIds: number[]) => void;
   onDeleteSelected: () => void;
   onDeleteAll: () => void;
+  totalCount: number; // tổng số bản ghi sau khi lọc (để hiển thị footer)
+  page: number;
+  pageSize: number;
+  canPrev: boolean;
+  canNext: boolean;
+  onPrevPage: () => void;
+  onNextPage: () => void;
 }
 
 export default function AccountTable({
@@ -38,6 +45,13 @@ export default function AccountTable({
   onSelectedAccountsChange,
   onDeleteSelected,
   onDeleteAll,
+  totalCount,
+  page,
+  pageSize,
+  canPrev,
+  canNext,
+  onPrevPage,
+  onNextPage,
 }: AccountTableProps) {
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -78,11 +92,11 @@ export default function AccountTable({
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold text-card-foreground flex items-center">
             <Users className="mr-2 h-5 w-5 text-primary" />
-            Danh sách tài khoản
+            Kho chung sức
           </h2>
           
           {/* Search and Filter */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             <div className="relative">
               <Input
                 type="text"
@@ -150,6 +164,9 @@ export default function AccountTable({
                 Trạng thái
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Lần cuối login
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Thao tác
               </th>
             </tr>
@@ -198,6 +215,9 @@ export default function AccountTable({
                       <div className="w-2 h-2 rounded-full bg-current mr-1 mt-0.5"></div>
                       {account.status ? 'ON' : 'OFF'}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {account.updatedAt}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
@@ -254,7 +274,18 @@ export default function AccountTable({
       <div className="px-6 py-4 border-t border-border bg-muted/30">
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            Hiển thị <span className="font-medium">1-{accounts.length}</span> của <span className="font-medium">{accounts.length}</span> tài khoản
+            Hiển thị <span className="font-medium">{(page - 1) * pageSize + 1}-{(page - 1) * pageSize + accounts.length}</span> của <span className="font-medium">{totalCount}</span> tài khoản
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm" onClick={onPrevPage} disabled={!canPrev}>
+              Trước
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Trang <span className="font-medium">{page}</span>
+            </span>
+            <Button variant="outline" size="sm" onClick={onNextPage} disabled={!canNext}>
+              Sau
+            </Button>
           </div>
         </div>
       </div>
