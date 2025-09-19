@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { Account } from "@shared/schema";
 
 interface AccountTableProps {
@@ -10,12 +11,16 @@ interface AccountTableProps {
   isLoading: boolean;
   searchTerm: string;
   statusFilter: "all" | "on" | "off";
+  selectedAccounts: number[];
   onSearchChange: (value: string) => void;
   onStatusFilterChange: (value: "all" | "on" | "off") => void;
   onCopyUsername: (username: string) => void;
   onCopyPassword: (password: string) => void;
   onToggleStatus: (account: Account) => void;
   onDeleteClick: (account: Account) => void;
+  onSelectedAccountsChange: (selectedIds: number[]) => void;
+  onDeleteSelected: () => void;
+  onDeleteAll: () => void;
 }
 
 export default function AccountTable({
@@ -29,7 +34,28 @@ export default function AccountTable({
   onCopyPassword,
   onToggleStatus,
   onDeleteClick,
+  selectedAccounts,
+  onSelectedAccountsChange,
+  onDeleteSelected,
+  onDeleteAll,
 }: AccountTableProps) {
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      onSelectedAccountsChange(accounts.map((acc) => acc.id));
+    } else {
+      onSelectedAccountsChange([]);
+    }
+  };
+
+  const handleSelectRow = (accountId: number, checked: boolean) => {
+    if (checked) {
+      onSelectedAccountsChange([...selectedAccounts, accountId]);
+    } else {
+      onSelectedAccountsChange(selectedAccounts.filter((id) => id !== accountId));
+    }
+  };
+
+  const isAllSelected = accounts.length > 0 && selectedAccounts.length === accounts.length;
   if (isLoading) {
     return (
       <div className="bg-card border border-border rounded-lg shadow-sm">
@@ -78,6 +104,23 @@ export default function AccountTable({
                 <SelectItem value="off">Tạm dừng</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={onDeleteSelected}
+              disabled={selectedAccounts.length === 0}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Xóa ({selectedAccounts.length})
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={onDeleteAll}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Xóa tất cả
+            </Button>
           </div>
         </div>
       </div>
@@ -87,6 +130,13 @@ export default function AccountTable({
         <table className="w-full">
           <thead className="bg-muted">
             <tr>
+              <th className="px-4 py-3">
+                <Checkbox
+                  checked={isAllSelected}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all rows"
+                />
+              </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 ID
               </th>
@@ -107,13 +157,20 @@ export default function AccountTable({
           <tbody className="bg-card divide-y divide-border">
             {accounts.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
+                <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
                   Không có tài khoản nào được tìm thấy
                 </td>
               </tr>
             ) : (
               accounts.map((account) => (
                 <tr key={account.id} className="hover:bg-muted/50 transition-colors" data-testid={`row-account-${account.id}`}>
+                   <td className="px-4 py-4">
+                    <Checkbox
+                      checked={selectedAccounts.includes(account.id)}
+                      onCheckedChange={(checked) => handleSelectRow(account.id, !!checked)}
+                      aria-label={`Select row ${account.id}`}
+                    />
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-card-foreground">
                     {account.id.toString().padStart(3, '0')}
                   </td>

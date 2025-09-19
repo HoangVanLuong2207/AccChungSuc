@@ -1,5 +1,8 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db"; 
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -9,6 +12,26 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? '***[HIDDEN]***' : 'Not 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Session configuration
+const PgStore = connectPgSimple(session);
+const store = new PgStore({
+  pool: pool,
+  tableName: 'user_sessions',
+  createTableIfMissing: true,
+});
+
+app.use(session({
+  store: store,
+  secret: process.env.SESSION_SECRET || 'a-default-secret-for-development',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 1000 * 60 * 60 * 24 // 1 day
+  }
+}));
 
 app.use((req, res, next) => {
   const start = Date.now();
