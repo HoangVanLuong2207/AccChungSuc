@@ -1,15 +1,65 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertAccountSchema, updateAccountSchema } from "@shared/schema";
+import { insertAccountSchema, updateAccountSchema, insertUserSchema } from "@shared/schema";
+import { isAuthenticated } from "./auth";
+import bcrypt from "bcrypt";
 import multer from "multer";
 import { z } from "zod";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth routes
+  app.post("/api/login", async (req, res) => {
+    console.log('--- Login Request Received ---');
+    try {
+      const { username, password } = insertUserSchema.parse(req.body);
+      console.log(`Attempting login for user: ${username}`);
+
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        console.log(`User not found: ${username}`);
+        return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không đúng" });
+      }
+      console.log(`User found: ${user.username}`);
+
+      const isPasswordMatch = await bcrypt.compare(password, user.password);
+      if (!isPasswordMatch) {
+        console.log(`Password mismatch for user: ${username}`);
+        return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không đúng" });
+      }
+      console.log(`Password match for user: ${username}`);
+
+      req.session.userId = user.id;
+      console.log(`Session created for user ID: ${user.id}`);
+      res.json({ id: user.id, username: user.username });
+
+    } catch (error) {
+      console.error('!!! SERVER LOGIN ERROR !!!:', error);
+      res.status(500).json({ message: "Lỗi máy chủ nội bộ" });
+    }
+  });
+
+  app.post("/api/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Không thể đăng xuất" });
+      }
+      res.clearCookie('connect.sid'); // Tên cookie mặc định của express-session
+      res.status(200).json({ message: "Đăng xuất thành công" });
+    });
+  });
+
+  app.get("/api/auth/status", (req, res) => {
+    if (req.session.userId) {
+      res.json({ loggedIn: true });
+    } else {
+      res.json({ loggedIn: false });
+    }
+  });
   // Get all accounts
-  app.get("/api/accounts", async (req, res) => {
+  app.get("/api/accounts", isAuthenticated, async (req, res) => {
     try {
       const accounts = await storage.getAllAccounts();
       res.json(accounts);
@@ -19,7 +69,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new account
-  app.post("/api/accounts", async (req, res) => {
+  app.post("/api/accounts", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertAccountSchema.parse(req.body);
       const account = await storage.createAccount(validatedData);
@@ -34,7 +84,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update account status
-  app.patch("/api/accounts/:id/status", async (req, res) => {
+  app.patch("/api/accounts/:id/status", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { status } = updateAccountSchema.parse(req.body);
@@ -55,7 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete account
-  app.delete("/api/accounts/:id", async (req, res) => {
+  app.delete("/api/accounts/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const success = await storage.deleteAccount(id);
@@ -70,8 +120,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete multiple or all accounts
+  app.delete("/api/accounts", isAuthenticated, async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (ids && Array.isArray(ids) && ids.length > 0) {
+        // Delete multiple accounts
+        const deletedCount = await storage.deleteMultipleAccounts(ids);
+        res.json({ message: `Đã xóa ${deletedCount} tài khoản.` });
+      } else {
+        // Delete all accounts
+        const deletedCount = await storage.deleteAllAccounts();
+        res.json({ message: `Đã xóa tất cả ${deletedCount} tài khoản.` });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete accounts" });
+    }
+  });
+
   // Import accounts from file
-  app.post("/api/accounts/import", upload.single('file'), async (req, res) => {
+  app.post("/api/accounts/import", isAuthenticated, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "Không có file được cung cấp" });
@@ -156,7 +224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get account statistics
-  app.get("/api/accounts/stats", async (req, res) => {
+  app.get("/api/accounts/stats", isAuthenticated, async (req, res) => {
     try {
       const stats = await storage.getAccountStats();
       res.json(stats);

@@ -2,9 +2,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
 import AccountTable from "@/components/account-table";
 import ImportSection from "@/components/import-section";
 import DeleteModal from "@/components/delete-modal";
+import DeleteMultipleModal from "@/components/delete-multiple-modal";
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import type { Account } from "@shared/schema";
 
 interface AccountStats {
@@ -16,9 +21,14 @@ interface AccountStats {
 export default function Dashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { logout } = useAuth();
   const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "on" | "off">("all");
+  const [selectedAccounts, setSelectedAccounts] = useState<number[]>([]);
+  const [isDeleteMultipleModalOpen, setDeleteMultipleModalOpen] = useState(false);
+  const [isDeleteAll, setDeleteAll] = useState(false);
+  const [importResult, setImportResult] = useState<{ imported: number; errors: number; errorDetails: any[] } | null>(null);
 
   // Fetch accounts
   const { data: accounts = [], isLoading } = useQuery<Account[]>({
@@ -75,6 +85,30 @@ export default function Dashboard() {
     },
   });
 
+  // Delete multiple accounts mutation
+  const deleteMultipleAccountsMutation = useMutation({
+    mutationFn: async (ids?: number[]) => {
+      await apiRequest('DELETE', '/api/accounts', { ids });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
+      setSelectedAccounts([]);
+      setDeleteMultipleModalOpen(false);
+      toast({
+        title: "Thành công",
+        description: "Đã xóa các tài khoản đã chọn",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Lỗi",
+        description: "Không thể xóa các tài khoản",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Import accounts mutation
   const importAccountsMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -97,10 +131,7 @@ export default function Dashboard() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
-      toast({
-        title: "Thành công",
-        description: `Đã import ${data.imported} tài khoản`,
-      });
+      setImportResult(data);
     },
     onError: (error) => {
       toast({
@@ -145,6 +176,24 @@ export default function Dashboard() {
     importAccountsMutation.mutate(file);
   };
 
+  const handleDeleteSelected = () => {
+    setDeleteAll(false);
+    setDeleteMultipleModalOpen(true);
+  };
+
+  const handleDeleteAll = () => {
+    setDeleteAll(true);
+    setDeleteMultipleModalOpen(true);
+  };
+
+  const handleConfirmDeleteMultiple = () => {
+    if (isDeleteAll) {
+      deleteMultipleAccountsMutation.mutate(undefined);
+    } else {
+      deleteMultipleAccountsMutation.mutate(selectedAccounts);
+    }
+  };
+
   // Filter accounts
   const filteredAccounts = accounts.filter((account) => {
     const matchesSearch = account.username.toLowerCase().includes(searchTerm.toLowerCase());
@@ -157,9 +206,15 @@ export default function Dashboard() {
   return (
     <div className="container mx-auto px-6 py-8 max-w-7xl">
       {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Quản lý tài khoản</h1>
-        <p className="text-muted-foreground">Quản lý và theo dõi tất cả các tài khoản trong hệ thống</p>
+      <div className="mb-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Quản lý tài khoản</h1>
+          <p className="text-muted-foreground">Quản lý và theo dõi tất cả các tài khoản trong hệ thống</p>
+        </div>
+        <Button variant="outline" onClick={logout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Đăng xuất
+        </Button>
       </div>
 
       <div className="grid lg:grid-cols-4 gap-6">
@@ -183,6 +238,10 @@ export default function Dashboard() {
             onCopyPassword={(password) => copyToClipboard(password, 'mật khẩu')}
             onToggleStatus={handleToggleStatus}
             onDeleteClick={handleDeleteClick}
+            selectedAccounts={selectedAccounts}
+            onSelectedAccountsChange={setSelectedAccounts}
+            onDeleteSelected={handleDeleteSelected}
+            onDeleteAll={handleDeleteAll}
           />
         </div>
       </div>
@@ -195,6 +254,43 @@ export default function Dashboard() {
         onCancel={() => setAccountToDelete(null)}
         isDeleting={deleteAccountMutation.isPending}
       />
+
+      {/* Delete Multiple Confirmation Modal */}
+      <DeleteMultipleModal
+        isOpen={isDeleteMultipleModalOpen}
+        deleteCount={isDeleteAll ? accounts.length : selectedAccounts.length}
+        onConfirm={handleConfirmDeleteMultiple}
+        onCancel={() => setDeleteMultipleModalOpen(false)}
+        isDeleting={deleteMultipleAccountsMutation.isPending}
+      />
+
+      {/* Import Result Dialog */}
+      <AlertDialog open={!!importResult} onOpenChange={() => setImportResult(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kết quả Import</AlertDialogTitle>
+            <AlertDialogDescription>
+              <p>Đã import thành công: {importResult?.imported || 0} tài khoản.</p>
+              <p>Số tài khoản lỗi: {importResult?.errors || 0}.</p>
+              {importResult && importResult.errors > 0 && (
+                <div className="mt-4 max-h-60 overflow-y-auto">
+                  <h4 className="font-semibold">Chi tiết lỗi:</h4>
+                  <ul className="list-disc pl-5 text-sm">
+                    {importResult.errorDetails.map((err, index) => (
+                      <li key={index}>
+                        <strong>{err.account.username}:</strong> {err.error}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Đóng</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

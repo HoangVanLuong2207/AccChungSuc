@@ -1,13 +1,16 @@
-import { accounts, type Account, type InsertAccount } from "@shared/schema";
+import { accounts, users, type Account, type InsertAccount, type User } from "@shared/schema";
 import { db } from "./db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, inArray } from "drizzle-orm";
 
 interface IStorage {
   getAllAccounts(): Promise<Account[]>;
   createAccount(insertAccount: InsertAccount): Promise<Account>;
   updateAccountStatus(id: number, status: boolean): Promise<Account | undefined>;
   deleteAccount(id: number): Promise<boolean>;
+  deleteMultipleAccounts(ids: number[]): Promise<number>;
+  deleteAllAccounts(): Promise<number>;
   getAccountStats(): Promise<{ total: number; active: number; inactive: number }>;
+  getUserByUsername(username: string): Promise<User | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -60,6 +63,31 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async deleteMultipleAccounts(ids: number[]): Promise<number> {
+    if (ids.length === 0) {
+      return 0;
+    }
+    try {
+      const result = await db
+        .delete(accounts)
+        .where(inArray(accounts.id, ids));
+      return result.rowCount ?? 0;
+    } catch (error) {
+      console.error('Error in deleteMultipleAccounts:', error);
+      throw new Error('Failed to delete multiple accounts from database');
+    }
+  }
+
+  async deleteAllAccounts(): Promise<number> {
+    try {
+      const result = await db.delete(accounts);
+      return result.rowCount ?? 0;
+    } catch (error) {
+      console.error('Error in deleteAllAccounts:', error);
+      throw new Error('Failed to delete all accounts from database');
+    }
+  }
+
   async getAccountStats(): Promise<{ total: number; active: number; inactive: number }> {
     try {
       const [stats] = await db
@@ -74,6 +102,19 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error in getAccountStats:', error);
       return { total: 0, active: 0, inactive: 0 };
+    }
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.username, username));
+      return user;
+    } catch (error) {
+      console.error('Error in getUserByUsername:', error);
+      throw new Error('Failed to fetch user from database');
     }
   }
 }
