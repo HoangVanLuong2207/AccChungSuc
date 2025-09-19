@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, PoolConfig } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 import 'dotenv/config';
@@ -14,54 +14,61 @@ console.log('- PGHOST:', process.env.PGHOST || 'Not set');
 console.log('- PGDATABASE:', process.env.PGDATABASE || 'Not set');
 console.log('- PGUSER:', process.env.PGUSER || 'Not set');
 
-if (!dbUrl) {
-  console.error('❌ Error: DATABASE_URL is not set in environment variables');
-  throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
-}
+// Default configuration for Render.com PostgreSQL
+const DEFAULT_CONFIG: PoolConfig = {
+  user: 'root',
+  password: 'lEx9Zk7EVyqjfxO3XWofcyaKEYUffwiq',
+  host: 'dpg-d35r6gjipnbc739ndtt0-a.oregon-postgres.render.com',
+  database: 'cloneacc_lt8x',
+  port: 5432,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+  connectionTimeoutMillis: 5000,
+  query_timeout: 10000,
+};
 
 // Parse database URL
-function parseDatabaseUrl(url: string) {
+function parseDatabaseUrl(url: string): PoolConfig {
   try {
-    // Clean up the URL if it has quotes or DATABASE_URL= prefix
-    let cleanUrl = url.trim();
-    if (cleanUrl.startsWith('"') && cleanUrl.endsWith('"')) {
-      cleanUrl = cleanUrl.slice(1, -1);
-    }
-    if (cleanUrl.startsWith('DATABASE_URL=')) {
-      cleanUrl = cleanUrl.replace('DATABASE_URL=', '');
-    }
-    
-    // Handle postgres:// URLs
+    // Clean up the URL
+    let cleanUrl = url.trim()
+      .replace(/^"|"$/g, '') // Remove surrounding quotes
+      .replace(/^DATABASE_URL=/, ''); // Remove DATABASE_URL= prefix if present
+
+    // Convert postgres:// to postgresql://
     if (cleanUrl.startsWith('postgres://')) {
-      cleanUrl = cleanUrl.replace('postgres://', 'postgresql://');
+      cleanUrl = 'postgresql://' + cleanUrl.slice(11);
     }
-    
-    const parsed = new URL(cleanUrl);
-    
-    // Extract database name from path (remove leading slash)
-    const database = parsed.pathname.replace(/^\/+/, '');
-    
-    return {
-      user: parsed.username,
-      password: parsed.password,
-      host: parsed.hostname,
-      database: database,
-      port: parseInt(parsed.port, 10) || 5432,
-      ssl: {
-        rejectUnauthorized: false,
-      },
-      // Add timeouts
-      connectionTimeoutMillis: 5000,
-      query_timeout: 10000,
-    };
+
+    // If it's a connection string, parse it
+    if (cleanUrl.startsWith('postgresql://')) {
+      const parsed = new URL(cleanUrl);
+      return {
+        user: parsed.username || DEFAULT_CONFIG.user,
+        password: parsed.password || DEFAULT_CONFIG.password,
+        host: parsed.hostname || DEFAULT_CONFIG.host,
+        database: parsed.pathname.replace(/^\/+/, '') || DEFAULT_CONFIG.database,
+        port: parseInt(parsed.port, 10) || DEFAULT_CONFIG.port,
+        ssl: {
+          rejectUnauthorized: false,
+        },
+        connectionTimeoutMillis: 5000,
+        query_timeout: 10000,
+      };
+    }
+
+    // If we get here, it's not a standard connection string
+    console.warn('Non-standard DATABASE_URL format, using default config');
+    return { ...DEFAULT_CONFIG };
   } catch (error) {
-    console.error('Error parsing DATABASE_URL:', error);
-    throw new Error('Invalid DATABASE_URL format');
+    console.error('Error parsing DATABASE_URL, using default config:', error);
+    return { ...DEFAULT_CONFIG };
   }
 }
 
 // Get database configuration from environment variables
-function getDbConfig() {
+function getDbConfig(): PoolConfig {
   // If individual PG* vars are set, use them
   if (process.env.PGHOST && process.env.PGDATABASE && process.env.PGUSER && process.env.PGPASSWORD) {
     return {
@@ -78,12 +85,13 @@ function getDbConfig() {
     };
   }
   
-  // Otherwise, parse DATABASE_URL
+  // Otherwise, parse DATABASE_URL or use defaults
   if (process.env.DATABASE_URL) {
     return parseDatabaseUrl(process.env.DATABASE_URL);
   }
   
-  throw new Error('Either DATABASE_URL or PG* environment variables must be set');
+  console.warn('Using default database configuration');
+  return { ...DEFAULT_CONFIG };
 }
 
 // Create database connection
@@ -91,18 +99,28 @@ let pool: Pool;
 try {
   const dbConfig = getDbConfig();
   
+  // Log the config (without sensitive data)
   console.log('Database connection config:', {
     ...dbConfig,
-    password: '***',
+    password: dbConfig.password ? '***' : 'not set',
     connectionString: '***HIDDEN***',
   });
   
+  // Create the pool
   pool = new Pool(dbConfig);
   
   // Test the connection
   pool.query('SELECT NOW()')
     .then(() => console.log('✅ Successfully connected to PostgreSQL'))
-    .catch(err => console.error('❌ Error connecting to PostgreSQL:', err));
+    .catch(err => {
+      console.error('❌ Error connecting to PostgreSQL:', err);
+      console.error('Connection details:', {
+        host: dbConfig.host,
+        port: dbConfig.port,
+        database: dbConfig.database,
+        user: dbConfig.user,
+      });
+    });
   
   // Handle connection errors
   pool.on('error', (err) => {
