@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Upload, Plus, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 interface ImportSectionLabels {
   importTitle?: string;
@@ -12,6 +13,7 @@ interface ImportSectionLabels {
 }
 
 interface ImportSectionProps {
+  className?: string;
   onImport: (file: File) => void;
   isImporting: boolean;
   stats?: {
@@ -24,7 +26,15 @@ interface ImportSectionProps {
   labels?: ImportSectionLabels;
 }
 
-export default function ImportSection({ onImport, isImporting, stats, onUpdateAll, isUpdatingAll, labels }: ImportSectionProps) {
+export default function ImportSection({
+  onImport,
+  isImporting,
+  stats,
+  onUpdateAll,
+  isUpdatingAll,
+  labels,
+  className,
+}: ImportSectionProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,10 +64,10 @@ export default function ImportSection({ onImport, isImporting, stats, onUpdateAl
   };
 
   return (
-    <div className="lg:col-span-1">
-      <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-card-foreground mb-4 flex items-center">
-          <Upload className="mr-2 h-5 w-5 text-primary" />
+    <div className={cn("w-full lg:col-span-1", className)}>
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
+        <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-card-foreground sm:text-lg">
+          <Upload className="h-5 w-5 text-primary" />
           {importTitle}
         </h2>
         
@@ -84,7 +94,7 @@ export default function ImportSection({ onImport, isImporting, stats, onUpdateAl
             </div>
           </div>
           
-          <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md">
+          <div className="overflow-x-auto rounded-md bg-muted p-3 text-xs text-muted-foreground">
             <strong>Format file:</strong><br />
             <code className="font-mono text-xs">
               [<br />
@@ -107,35 +117,35 @@ export default function ImportSection({ onImport, isImporting, stats, onUpdateAl
 
         {/* Stats Section */}
         <div className="mt-6 pt-6 border-t border-border">
-          <h3 className="text-md font-semibold text-card-foreground mb-3 flex items-center">
-            <BarChart3 className="mr-2 h-4 w-4" />
+          <h3 className="mb-3 flex items-center gap-2 text-md font-semibold text-card-foreground">
+            <BarChart3 className="h-4 w-4" />
             Thống kê
           </h3>
-          <div className="space-y-2">
-            <div className="flex justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-muted-foreground">{totalLabel}:</span>
               <span className="font-medium text-card-foreground" data-testid="text-total-accounts">
                 {stats?.total || 0}
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-muted-foreground">{activeLabel}:</span>
               <span className="font-medium text-green-600" data-testid="text-active-accounts">
                 {stats?.active || 0}
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-muted-foreground">{inactiveLabel}:</span>
               <span className="font-medium text-red-600" data-testid="text-inactive-accounts">
                 {stats?.inactive || 0}
               </span>
             </div>
             {onUpdateAll && (
-              <div className="flex items-center justify-between gap-2 pt-3">
+              <div className="flex flex-col gap-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="w-1/2"
+                  className="w-full sm:w-1/2"
                   style={{ backgroundColor: 'springgreen', color: 'white' }}
                   onClick={() => onUpdateAll(true)}
                   disabled={isUpdatingAll}
@@ -145,7 +155,7 @@ export default function ImportSection({ onImport, isImporting, stats, onUpdateAl
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="w-1/2"
+                  className="w-full sm:w-1/2"
                   style={{ backgroundColor: '#DC143C', color: 'white' }}
                   onClick={() => onUpdateAll(false)}
                   disabled={isUpdatingAll}
@@ -160,3 +170,6 @@ export default function ImportSection({ onImport, isImporting, stats, onUpdateAl
     </div>
   );
 }
+
+
+

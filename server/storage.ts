@@ -1,5 +1,6 @@
-import { accounts, accLogs, users, type Account, type InsertAccount, type User, type AccLog, type InsertAccLog } from "@shared/schema";
+﻿import { accounts, accLogs, users, type Account, type InsertAccount, type User, type AccLog, type InsertAccLog } from "@shared/schema";
 import { db } from "./db";
+import { randomUUID } from "crypto";
 import { eq, sql, inArray } from "drizzle-orm";
 
 interface IStorage {
@@ -23,6 +24,146 @@ interface IStorage {
 
   getUserByUsername(username: string): Promise<User | undefined>;
 }
+
+export class MemoryStorage implements IStorage {
+  private accountsData: Account[] = [];
+  private accLogsData: AccLog[] = [];
+  private usersData: User[] = [];
+  private accountIdCounter = 1;
+  private accLogIdCounter = 1;
+
+  constructor() {
+    const defaultPasswordHash = process.env.DEFAULT_DEV_PASSWORD_HASH || "$2b$10$ffqH24cGGzdQktYCPpquTuethITLFKoR33KCH36Si9f4q/r6/IMcG";
+    this.usersData.push({
+      id: randomUUID(),
+      username: process.env.DEFAULT_DEV_USERNAME || 'admin',
+      password: defaultPasswordHash,
+    });
+  }
+
+  async getAllAccounts(): Promise<Account[]> {
+    return [...this.accountsData];
+  }
+
+  async createAccount(insertAccount: InsertAccount): Promise<Account> {
+    const account: Account = {
+      id: this.accountIdCounter++,
+      username: insertAccount.username,
+      password: insertAccount.password,
+      status: true,
+      updatedAt: new Date(),
+    };
+    this.accountsData.push(account);
+    return account;
+  }
+
+  async updateAccountStatus(id: number, status: boolean): Promise<Account | undefined> {
+    const account = this.accountsData.find((item) => item.id === id);
+    if (!account) {
+      return undefined;
+    }
+    account.status = status;
+    account.updatedAt = new Date();
+    return account;
+  }
+
+  async deleteAccount(id: number): Promise<boolean> {
+    const initialLength = this.accountsData.length;
+    this.accountsData = this.accountsData.filter((item) => item.id !== id);
+    return this.accountsData.length < initialLength;
+  }
+
+  async deleteMultipleAccounts(ids: number[]): Promise<number> {
+    const initialLength = this.accountsData.length;
+    this.accountsData = this.accountsData.filter((item) => !ids.includes(item.id));
+    return initialLength - this.accountsData.length;
+  }
+
+  async deleteAllAccounts(): Promise<number> {
+    const deletedCount = this.accountsData.length;
+    this.accountsData = [];
+    return deletedCount;
+  }
+
+  async getAccountStats(): Promise<{ total: number; active: number; inactive: number }> {
+    const total = this.accountsData.length;
+    const active = this.accountsData.filter((item) => item.status).length;
+    const inactive = total - active;
+    return { total, active, inactive };
+  }
+
+  async updateAllAccountStatuses(status: boolean): Promise<number> {
+    this.accountsData.forEach((item) => {
+      item.status = status;
+      item.updatedAt = new Date();
+    });
+    return this.accountsData.length;
+  }
+
+  async getAllAccLogs(): Promise<AccLog[]> {
+    return [...this.accLogsData];
+  }
+
+  async createAccLog(insertAccLog: InsertAccLog): Promise<AccLog> {
+    const log: AccLog = {
+      id: this.accLogIdCounter++,
+      username: insertAccLog.username,
+      password: insertAccLog.password,
+      status: true,
+      updatedAt: new Date(),
+    };
+    this.accLogsData.push(log);
+    return log;
+  }
+
+  async updateAccLogStatus(id: number, status: boolean): Promise<AccLog | undefined> {
+    const log = this.accLogsData.find((item) => item.id === id);
+    if (!log) {
+      return undefined;
+    }
+    log.status = status;
+    log.updatedAt = new Date();
+    return log;
+  }
+
+  async deleteAccLog(id: number): Promise<boolean> {
+    const initialLength = this.accLogsData.length;
+    this.accLogsData = this.accLogsData.filter((item) => item.id !== id);
+    return this.accLogsData.length < initialLength;
+  }
+
+  async deleteMultipleAccLogs(ids: number[]): Promise<number> {
+    const initialLength = this.accLogsData.length;
+    this.accLogsData = this.accLogsData.filter((item) => !ids.includes(item.id));
+    return initialLength - this.accLogsData.length;
+  }
+
+  async deleteAllAccLogs(): Promise<number> {
+    const deletedCount = this.accLogsData.length;
+    this.accLogsData = [];
+    return deletedCount;
+  }
+
+  async getAccLogStats(): Promise<{ total: number; active: number; inactive: number }> {
+    const total = this.accLogsData.length;
+    const active = this.accLogsData.filter((item) => item.status).length;
+    const inactive = total - active;
+    return { total, active, inactive };
+  }
+
+  async updateAllAccLogStatuses(status: boolean): Promise<number> {
+    this.accLogsData.forEach((item) => {
+      item.status = status;
+      item.updatedAt = new Date();
+    });
+    return this.accLogsData.length;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return this.usersData.find((user) => user.username === username);
+  }
+}
+
 
 export class DatabaseStorage implements IStorage {
   async getAllAccounts(): Promise<Account[]> {
@@ -247,4 +388,17 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+const useDatabaseStorage = process.env.NODE_ENV === 'production' || process.env.USE_DATABASE_STORAGE === 'true';
+
+let storageInstance: IStorage;
+
+if (useDatabaseStorage) {
+  storageInstance = new DatabaseStorage();
+} else {
+  console.warn('Using in-memory storage. Set USE_DATABASE_STORAGE=true to enable PostgreSQL-backed storage.');
+  storageInstance = new MemoryStorage();
+}
+
+export const storage = storageInstance;
+
+
