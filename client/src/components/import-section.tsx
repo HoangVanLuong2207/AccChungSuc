@@ -3,6 +3,14 @@ import { Upload, Plus, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
+interface ImportSectionLabels {
+  importTitle?: string;
+  importButton?: string;
+  totalLabel?: string;
+  activeLabel?: string;
+  inactiveLabel?: string;
+}
+
 interface ImportSectionProps {
   onImport: (file: File) => void;
   isImporting: boolean;
@@ -13,11 +21,20 @@ interface ImportSectionProps {
   };
   onUpdateAll?: (status: boolean) => void;
   isUpdatingAll?: boolean;
+  labels?: ImportSectionLabels;
 }
 
-export default function ImportSection({ onImport, isImporting, stats, onUpdateAll, isUpdatingAll }: ImportSectionProps) {
+export default function ImportSection({ onImport, isImporting, stats, onUpdateAll, isUpdatingAll, labels }: ImportSectionProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    importTitle = "Import chung sức",
+    importButton = "Import",
+    totalLabel = "Tổng tài khoản",
+    activeLabel = "Đang hoạt động",
+    inactiveLabel = "Tạm dừng",
+  } = labels ?? {};
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -41,7 +58,7 @@ export default function ImportSection({ onImport, isImporting, stats, onUpdateAl
       <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-card-foreground mb-4 flex items-center">
           <Upload className="mr-2 h-5 w-5 text-primary" />
-          Import tài khoản
+          {importTitle}
         </h2>
         
         <div className="space-y-4">
@@ -84,7 +101,7 @@ export default function ImportSection({ onImport, isImporting, stats, onUpdateAl
             data-testid="button-import-accounts"
           >
             <Plus className="mr-2 h-4 w-4" />
-            {isImporting ? 'Đang xử lý...' : 'Import tài khoản'}
+            {isImporting ? 'Đang xử lý...' : importButton}
           </Button>
         </div>
 
@@ -96,19 +113,19 @@ export default function ImportSection({ onImport, isImporting, stats, onUpdateAl
           </h3>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Tổng tài khoản:</span>
+              <span className="text-sm text-muted-foreground">{totalLabel}:</span>
               <span className="font-medium text-card-foreground" data-testid="text-total-accounts">
                 {stats?.total || 0}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Đang hoạt động:</span>
+              <span className="text-sm text-muted-foreground">{activeLabel}:</span>
               <span className="font-medium text-green-600" data-testid="text-active-accounts">
                 {stats?.active || 0}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Tạm dừng:</span>
+              <span className="text-sm text-muted-foreground">{inactiveLabel}:</span>
               <span className="font-medium text-red-600" data-testid="text-inactive-accounts">
                 {stats?.inactive || 0}
               </span>

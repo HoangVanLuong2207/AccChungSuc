@@ -1,13 +1,15 @@
-import { Copy, Key, Check, Power, Trash2, Search, Users } from "lucide-react";
+import { Copy, Key, Check, Power, Trash2, Search, Users, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Account } from "@shared/schema";
+import type { Account, AccLog } from "@shared/schema";
+
+type AccountLike = Account | AccLog;
 
 interface AccountTableProps {
-  accounts: Account[];
+  accounts: AccountLike[];
   isLoading: boolean;
   searchTerm: string;
   statusFilter: "all" | "on" | "off";
@@ -16,10 +18,12 @@ interface AccountTableProps {
   onStatusFilterChange: (value: "all" | "on" | "off") => void;
   onCopyUsername: (username: string) => void;
   onCopyPassword: (password: string) => void;
-  onToggleStatus: (account: Account) => void;
-  onDeleteClick: (account: Account) => void;
+  onToggleStatus: (account: AccountLike) => void;
+  onDeleteClick: (account: AccountLike) => void;
   onSelectedAccountsChange: (selectedIds: number[]) => void;
   onDeleteSelected: () => void;
+  onExportSelected: () => void;
+  onExportAll: () => void;
   onDeleteAll: () => void;
   totalCount: number; // tổng số bản ghi sau khi lọc (để hiển thị footer)
   page: number;
@@ -28,6 +32,8 @@ interface AccountTableProps {
   canNext: boolean;
   onPrevPage: () => void;
   onNextPage: () => void;
+  title?: string;
+  emptyMessage?: string;
 }
 
 export default function AccountTable({
@@ -44,6 +50,8 @@ export default function AccountTable({
   selectedAccounts,
   onSelectedAccountsChange,
   onDeleteSelected,
+  onExportSelected,
+  onExportAll,
   onDeleteAll,
   totalCount,
   page,
@@ -52,6 +60,8 @@ export default function AccountTable({
   canNext,
   onPrevPage,
   onNextPage,
+  title = "Kho chung sức",
+  emptyMessage = "Không có tài khoản nào được tìm thấy",
 }: AccountTableProps) {
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -92,7 +102,7 @@ export default function AccountTable({
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold text-card-foreground flex items-center">
             <Users className="mr-2 h-5 w-5 text-primary" />
-            Kho chung sức
+            {title}
           </h2>
           
           {/* Search and Filter */}
@@ -118,6 +128,24 @@ export default function AccountTable({
                 <SelectItem value="off">Tạm dừng</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExportAll}
+              disabled={totalCount === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Xuất tất cả
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExportSelected}
+              disabled={selectedAccounts.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Xuất JS
+            </Button>
             <Button
               variant="destructive"
               size="sm"
@@ -175,7 +203,7 @@ export default function AccountTable({
             {accounts.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
-                  Không có tài khoản nào được tìm thấy
+                  {emptyMessage}
                 </td>
               </tr>
             ) : (

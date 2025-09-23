@@ -11,23 +11,23 @@ import ImportSection from "@/components/import-section";
 import DeleteModal from "@/components/delete-modal";
 import DeleteMultipleModal from "@/components/delete-multiple-modal";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import type { Account } from "@shared/schema";
+import type { AccLog } from "@shared/schema";
 
-interface AccountStats {
+interface AccLogStats {
   total: number;
   active: number;
   inactive: number;
 }
 
-export default function Dashboard() {
+export default function AccLogPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
+  const [logToDelete, setLogToDelete] = useState<AccLog | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "on" | "off">("all");
-  const [selectedAccounts, setSelectedAccounts] = useState<number[]>([]);
+  const [selectedLogs, setSelectedLogs] = useState<number[]>([]);
   const [isDeleteMultipleModalOpen, setDeleteMultipleModalOpen] = useState(false);
   const [isDeleteAll, setDeleteAll] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; errors: number; errorDetails: any[] } | null>(null);
@@ -35,114 +35,114 @@ export default function Dashboard() {
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
-  // Fetch accounts
-  const { data: accounts = [], isLoading } = useQuery<Account[]>({
-    queryKey: ['/api/accounts']
+  // Fetch logs
+  const { data: accounts = [], isLoading } = useQuery<AccLog[]>({
+    queryKey: ['/api/acclogs']
   });
 
-  // Update all account statuses mutation
-  const updateAllStatusesMutation = useMutation({
+  // Update all log statuses mutation
+  const updateAllLogsMutation = useMutation({
     mutationFn: async (status: boolean) => {
-      await apiRequest('PATCH', '/api/accounts/status-all', { status });
+      await apiRequest('PATCH', '/api/acclogs/status-all', { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/acclogs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/acclogs/stats'] });
       toast({
         title: "Thành công",
-        description: 'Đã cập nhật trạng thái cho toàn bộ tài khoản',
+        description: 'Đã cập nhật trạng thái cho toàn bộ acc log',
       });
     },
     onError: () => {
       toast({
         title: 'Lỗi',
-        description: 'Không thể cập nhật trạng thái toàn bộ',
+        description: 'Không thể cập nhật trạng thái toàn bộ acc log',
         variant: 'destructive',
       });
     },
   });
 
   // Fetch statistics
-  const { data: stats } = useQuery<AccountStats>({
-    queryKey: ['/api/accounts/stats']
+  const { data: stats } = useQuery<AccLogStats>({
+    queryKey: ['/api/acclogs/stats']
   });
 
-  // Toggle account status mutation
-  const toggleStatusMutation = useMutation({
+  // Toggle log status mutation
+  const toggleLogStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: boolean }) => {
-      await apiRequest('PATCH', `/api/accounts/${id}/status`, { status });
+      await apiRequest('PATCH', `/api/acclogs/${id}/status`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/acclogs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/acclogs/stats'] });
       toast({
         title: "Thành công",
-        description: "Đã cập nhật trạng thái tài khoản",
+        description: "Đã cập nhật trạng thái acc log",
       });
     },
     onError: () => {
       toast({
         title: "Lỗi",
-        description: "Không thể cập nhật trạng thái",
+        description: "Không thể cập nhật trạng thái acc log",
         variant: "destructive",
       });
     },
   });
 
-  // Delete account mutation
-  const deleteAccountMutation = useMutation({
+  // Delete log mutation
+  const deleteLogMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest('DELETE', `/api/accounts/${id}`);
+      await apiRequest('DELETE', `/api/acclogs/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
-      setAccountToDelete(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/acclogs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/acclogs/stats'] });
+      setLogToDelete(null);
       toast({
         title: "Thành công",
-        description: "Đã xóa tài khoản",
+        description: "Đã xóa acc log",
       });
     },
     onError: () => {
       toast({
         title: "Lỗi",
-        description: "Không thể xóa tài khoản",
+        description: "Không thể xóa acc log",
         variant: "destructive",
       });
     },
   });
 
-  // Delete multiple accounts mutation
-  const deleteMultipleAccountsMutation = useMutation({
+  // Delete multiple logs mutation
+  const deleteMultipleLogsMutation = useMutation({
     mutationFn: async (ids?: number[]) => {
-      await apiRequest('DELETE', '/api/accounts', { ids });
+      await apiRequest('DELETE', '/api/acclogs', { ids });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
-      setSelectedAccounts([]);
+      queryClient.invalidateQueries({ queryKey: ['/api/acclogs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/acclogs/stats'] });
+      setSelectedLogs([]);
       setDeleteMultipleModalOpen(false);
       toast({
         title: "Thành công",
-        description: "Đã xóa các tài khoản đã chọn",
+        description: "Đã xóa các acc log đã chọn",
       });
     },
     onError: () => {
       toast({
         title: "Lỗi",
-        description: "Không thể xóa các tài khoản",
+        description: "Không thể xóa các acc log",
         variant: "destructive",
       });
     },
   });
 
-  // Import accounts mutation
-  const importAccountsMutation = useMutation({
+  // Import logs mutation
+  const importLogsMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetch('/api/accounts/import', {
+      const response = await fetch('/api/acclogs/import', {
         method: 'POST',
         body: formData,
         credentials: 'include',
@@ -156,8 +156,8 @@ export default function Dashboard() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/acclogs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/acclogs/stats'] });
       setImportResult(data);
     },
     onError: (error) => {
@@ -185,25 +185,25 @@ export default function Dashboard() {
     }
   };
 
-  const handleToggleStatus = (account: Account) => {
-    toggleStatusMutation.mutate({ id: account.id, status: !account.status });
+  const handleToggleLogStatus = (account: AccLog) => {
+    toggleLogStatusMutation.mutate({ id: account.id, status: !account.status });
   };
 
-  const handleDeleteClick = (account: Account) => {
-    setAccountToDelete(account);
+  const handleDeleteClick = (account: AccLog) => {
+    setLogToDelete(account);
   };
 
   const handleConfirmDelete = () => {
-    if (accountToDelete) {
-      deleteAccountMutation.mutate(accountToDelete.id);
+    if (logToDelete) {
+      deleteLogMutation.mutate(logToDelete.id);
     }
   };
 
-  const handleImport = (file: File) => {
-    importAccountsMutation.mutate(file);
+  const handleImportLogs = (file: File) => {
+    importLogsMutation.mutate(file);
   };
 
-  const exportAccountsToJs = (accountsToExport: Account[], filenamePrefix: string) => {
+  const exportLogsToJs = (accountsToExport: AccLog[], filenamePrefix: string) => {
     const exportPayload = accountsToExport.map(({ username, password }) => ({ username, password }));
     const fileContent = `${JSON.stringify(exportPayload, null, 2)}\n`;
 
@@ -226,18 +226,18 @@ export default function Dashboard() {
     return true;
   };
 
-  const handleExportSelected = () => {
-    const selectedData = accounts.filter((account) => selectedAccounts.includes(account.id));
+  const handleExportSelectedLogs = () => {
+    const selectedData = accounts.filter((account) => selectedLogs.includes(account.id));
 
     if (selectedData.length === 0) {
       toast({
-        title: "Chưa có tài khoản",
-        description: "Hãy chọn ít nhất một tài khoản để xuất",
+        title: "Chưa có acc log",
+        description: "Hãy chọn ít nhất một acc log để xuất",
       });
       return;
     }
 
-    const didExport = exportAccountsToJs(selectedData, "accounts-selected");
+    const didExport = exportLogsToJs(selectedData, "acclogs-selected");
 
     if (!didExport) {
       toast({
@@ -250,30 +250,30 @@ export default function Dashboard() {
 
     toast({
       title: "Thành công",
-      description: `Đã xuất ${selectedData.length} tài khoản đã chọn`,
+      description: `Đã xuất ${selectedData.length} acc log đã chọn`,
     });
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelectedLogs = () => {
     setDeleteAll(false);
     setDeleteMultipleModalOpen(true);
   };
 
-  const handleDeleteAll = () => {
+  const handleDeleteAllLogs = () => {
     setDeleteAll(true);
     setDeleteMultipleModalOpen(true);
   };
 
-  const handleConfirmDeleteMultiple = () => {
+  const handleConfirmDeleteMultipleLogs = () => {
     if (isDeleteAll) {
-      deleteMultipleAccountsMutation.mutate(undefined);
+      deleteMultipleLogsMutation.mutate(undefined);
     } else {
-      deleteMultipleAccountsMutation.mutate(selectedAccounts);
+      deleteMultipleLogsMutation.mutate(selectedLogs);
     }
   };
 
-  // Filter accounts
-  const filteredAccounts = accounts.filter((account) => {
+  // Filter logs
+  const filteredLogs = accounts.filter((account) => {
     const matchesSearch = account.username.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || 
       (statusFilter === "on" && account.status) ||
@@ -281,16 +281,16 @@ export default function Dashboard() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleExportAll = () => {
-    if (filteredAccounts.length === 0) {
+  const handleExportAllLogs = () => {
+    if (filteredLogs.length === 0) {
       toast({
         title: "Chưa có dữ liệu",
-        description: "Không có tài khoản nào để xuất",
+        description: "Không có acc log nào để xuất",
       });
       return;
     }
 
-    const didExport = exportAccountsToJs(filteredAccounts, "accounts-all");
+    const didExport = exportLogsToJs(filteredLogs, "acclogs-all");
 
     if (!didExport) {
       toast({
@@ -303,7 +303,7 @@ export default function Dashboard() {
 
     toast({
       title: "Thành công",
-      description: `Đã xuất toàn bộ ${filteredAccounts.length} tài khoản`,
+      description: `Đã xuất toàn bộ ${filteredLogs.length} acc log`,
     });
   };
 
@@ -313,9 +313,9 @@ export default function Dashboard() {
   }, [searchTerm, statusFilter]);
 
   // Slice per page
-  const totalCount = filteredAccounts.length;
+  const totalCount = filteredLogs.length;
   const startIndex = (page - 1) * pageSize;
-  const limitedAccounts = filteredAccounts.slice(startIndex, startIndex + pageSize);
+  const limitedLogs = filteredLogs.slice(startIndex, startIndex + pageSize);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const canPrev = page > 1;
   const canNext = page < totalPages;
@@ -325,12 +325,12 @@ export default function Dashboard() {
       {/* Page Header */}
       <div className="mb-8 flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Kho chung sức</h1>
-          <p className="text-muted-foreground">Quản lý và theo dõi tất cả các tài khoản trong hệ thống</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Kho log </h1>
+          <p className="text-muted-foreground">Quản lý và theo dõi tất cả các acc log trong hệ thống</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={() => navigate('/acclogs')}>
-            Tới acc log
+          <Button variant="secondary" onClick={() => navigate('/')}>
+            Về tài khoản
           </Button>
           <Button variant="outline" onClick={logout}>
             <LogOut className="mr-2 h-4 w-4" />
@@ -342,32 +342,41 @@ export default function Dashboard() {
       <div className="grid lg:grid-cols-4 gap-6">
         {/* Import Section */}
         <ImportSection 
-          onImport={handleImport}
-          isImporting={importAccountsMutation.isPending}
+          onImport={handleImportLogs}
+          isImporting={importLogsMutation.isPending}
           stats={stats}
-          onUpdateAll={(status: boolean) => updateAllStatusesMutation.mutate(status)}
-          isUpdatingAll={updateAllStatusesMutation.isPending}
+          onUpdateAll={(status: boolean) => updateAllLogsMutation.mutate(status)}
+          isUpdatingAll={updateAllLogsMutation.isPending}
+          labels={{
+            importTitle: "Import log",
+            importButton: "Import ",
+            totalLabel: "Tổng acc log",
+            activeLabel: "Đang hoạt động",
+            inactiveLabel: "Tạm dừng",
+          }}
         />
 
         {/* Accounts Table */}
         <div className="lg:col-span-3">
           <AccountTable
-            accounts={limitedAccounts}
+            title="Acc Log"
+            emptyMessage="Không có acc log nào được tìm thấy"
+            accounts={limitedLogs}
             isLoading={isLoading}
             searchTerm={searchTerm}
             statusFilter={statusFilter}
             onSearchChange={setSearchTerm}
             onStatusFilterChange={setStatusFilter}
-            onCopyUsername={(username) => copyToClipboard(username, 'tài khoản')}
+            onCopyUsername={(username) => copyToClipboard(username, 'acc log')}
             onCopyPassword={(password) => copyToClipboard(password, 'mật khẩu')}
-            onToggleStatus={handleToggleStatus}
+            onToggleStatus={handleToggleLogStatus}
             onDeleteClick={handleDeleteClick}
-            selectedAccounts={selectedAccounts}
-            onSelectedAccountsChange={setSelectedAccounts}
-            onDeleteSelected={handleDeleteSelected}
-            onExportSelected={handleExportSelected}
-            onExportAll={handleExportAll}
-            onDeleteAll={handleDeleteAll}
+            selectedAccounts={selectedLogs}
+            onSelectedAccountsChange={setSelectedLogs}
+            onDeleteSelected={handleDeleteSelectedLogs}
+            onExportSelected={handleExportSelectedLogs}
+            onExportAll={handleExportAllLogs}
+            onDeleteAll={handleDeleteAllLogs}
             totalCount={totalCount}
             page={page}
             pageSize={pageSize}
@@ -381,20 +390,20 @@ export default function Dashboard() {
 
       {/* Delete Confirmation Modal */}
       <DeleteModal
-        isOpen={!!accountToDelete}
-        accountName={accountToDelete?.username || ""}
+        isOpen={!!logToDelete}
+        accountName={logToDelete?.username || ""}
         onConfirm={handleConfirmDelete}
-        onCancel={() => setAccountToDelete(null)}
-        isDeleting={deleteAccountMutation.isPending}
+        onCancel={() => setLogToDelete(null)}
+        isDeleting={deleteLogMutation.isPending}
       />
 
       {/* Delete Multiple Confirmation Modal */}
       <DeleteMultipleModal
         isOpen={isDeleteMultipleModalOpen}
-        deleteCount={isDeleteAll ? accounts.length : selectedAccounts.length}
-        onConfirm={handleConfirmDeleteMultiple}
+        deleteCount={isDeleteAll ? accounts.length : selectedLogs.length}
+        onConfirm={handleConfirmDeleteMultipleLogs}
         onCancel={() => setDeleteMultipleModalOpen(false)}
-        isDeleting={deleteMultipleAccountsMutation.isPending}
+        isDeleting={deleteMultipleLogsMutation.isPending}
       />
 
       {/* Import Result Dialog */}
@@ -403,8 +412,8 @@ export default function Dashboard() {
           <AlertDialogHeader>
             <AlertDialogTitle>Kết quả Import</AlertDialogTitle>
             <AlertDialogDescription>
-              <p>Đã import thành công: {importResult?.imported || 0} tài khoản.</p>
-              <p>Số tài khoản lỗi: {importResult?.errors || 0}.</p>
+              <p>Đã import thành công: {importResult?.imported || 0} acc log.</p>
+              <p>Số acc log lỗi: {importResult?.errors || 0}.</p>
               {importResult && importResult.errors > 0 && (
                 <div className="mt-4 max-h-60 overflow-y-auto">
                   <h4 className="font-semibold">Chi tiết lỗi:</h4>
