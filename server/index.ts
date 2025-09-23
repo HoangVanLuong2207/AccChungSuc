@@ -18,15 +18,34 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Session configuration
-const PgStore = connectPgSimple(session);
-const store = new PgStore({
-  pool: pool,
-  tableName: 'user_sessions',
-  createTableIfMissing: true,
-});
+const usePgSessionStore = process.env.NODE_ENV === 'production' || process.env.USE_PG_SESSION_STORE === 'true';
+let sessionStore: session.Store;
+
+if (usePgSessionStore) {
+  const PgStore = connectPgSimple(session);
+  try {
+    const pgStoreInstance = new PgStore({
+      pool,
+      tableName: 'user_sessions',
+      createTableIfMissing: true,
+    });
+
+    pgStoreInstance.on('error', (error) => {
+      console.error('Session store error:', error);
+    });
+
+    sessionStore = pgStoreInstance;
+  } catch (error) {
+    console.error('Failed to initialize Postgres session store, falling back to MemoryStore:', error);
+    sessionStore = new session.MemoryStore();
+  }
+} else {
+  console.warn('Using in-memory session store. Set USE_PG_SESSION_STORE=true to enable Postgres-backed sessions.');
+  sessionStore = new session.MemoryStore();
+}
 
 app.use(session({
-  store: store,
+  store: sessionStore,
   secret: process.env.SESSION_SECRET || 'a-default-secret-for-development',
   resave: false,
   saveUninitialized: false,

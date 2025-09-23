@@ -1,16 +1,17 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, Upload } from "lucide-react";
 import AccountTable from "@/components/account-table";
 import ImportSection from "@/components/import-section";
 import DeleteModal from "@/components/delete-modal";
 import DeleteMultipleModal from "@/components/delete-multiple-modal";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { AccLog } from "@shared/schema";
 
 interface AccLogStats {
@@ -34,6 +35,14 @@ export default function AccLogPage() {
   // Pagination state
   const [page, setPage] = useState(1);
   const pageSize = 20;
+
+  const importSectionLabels = {
+    importTitle: "Import log",
+    importButton: "Import log",
+    totalLabel: "Tổng acc log",
+    activeLabel: "Đang hoạt động",
+    inactiveLabel: "Tạm dừng",
+  };
 
   // Fetch logs
   const { data: accounts = [], isLoading } = useQuery<AccLog[]>({
@@ -321,18 +330,18 @@ export default function AccLogPage() {
   const canNext = page < totalPages;
 
   return (
-    <div className="container mx-auto px-6 py-8 max-w-7xl">
+    <div className="container mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
       {/* Page Header */}
-      <div className="mb-8 flex justify-between items-center">
+      <div className="mb-8 flex flex-col gap-4 font-sans md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Kho log </h1>
+          <h1 className="mb-2 text-2xl font-bold text-foreground sm:text-3xl">Kho log </h1>
           <p className="text-muted-foreground">Quản lý và theo dõi tất cả các acc log trong hệ thống</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={() => navigate('/')}>
-            Về tài khoản
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center md:justify-end">
+          <Button className="w-full sm:w-auto" variant="secondary" onClick={() => navigate('/')}>
+            Về kho chung sức
           </Button>
-          <Button variant="outline" onClick={logout}>
+          <Button className="w-full sm:w-auto" variant="outline" onClick={logout}>
             <LogOut className="mr-2 h-4 w-4" />
             Đăng xuất
           </Button>
@@ -341,19 +350,14 @@ export default function AccLogPage() {
 
       <div className="grid lg:grid-cols-4 gap-6">
         {/* Import Section */}
-        <ImportSection 
+        <ImportSection
+          className="hidden lg:block"
           onImport={handleImportLogs}
           isImporting={importLogsMutation.isPending}
           stats={stats}
           onUpdateAll={(status: boolean) => updateAllLogsMutation.mutate(status)}
           isUpdatingAll={updateAllLogsMutation.isPending}
-          labels={{
-            importTitle: "Import log",
-            importButton: "Import ",
-            totalLabel: "Tổng acc log",
-            activeLabel: "Đang hoạt động",
-            inactiveLabel: "Tạm dừng",
-          }}
+          labels={importSectionLabels}
         />
 
         {/* Accounts Table */}
@@ -386,6 +390,37 @@ export default function AccLogPage() {
             onNextPage={() => canNext && setPage((p) => p + 1)}
           />
         </div>
+      </div>
+
+
+      {/* Mobile Import Entry */}
+      <div className="lg:hidden">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button
+              className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Upload className="h-4 w-4" />
+              Import & Thống kê
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="h-[85vh] overflow-y-auto rounded-t-3xl pb-8">
+            <SheetHeader className="px-1">
+              <SheetTitle>Import & Thống kê</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4 space-y-4">
+              <ImportSection
+                className="mx-auto w-full max-w-lg"
+                onImport={handleImportLogs}
+                isImporting={importLogsMutation.isPending}
+                stats={stats}
+                onUpdateAll={(status: boolean) => updateAllLogsMutation.mutate(status)}
+                isUpdatingAll={updateAllLogsMutation.isPending}
+                labels={importSectionLabels}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Delete Confirmation Modal */}
@@ -436,3 +471,7 @@ export default function AccLogPage() {
     </div>
   );
 }
+
+
+
+

@@ -1,16 +1,17 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, Upload } from "lucide-react";
 import AccountTable from "@/components/account-table";
 import ImportSection from "@/components/import-section";
 import DeleteModal from "@/components/delete-modal";
 import DeleteMultipleModal from "@/components/delete-multiple-modal";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { Account } from "@shared/schema";
 
 interface AccountStats {
@@ -49,14 +50,14 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
       toast({
-        title: "Thành công",
-        description: 'Đã cập nhật trạng thái cho toàn bộ tài khoản',
+        title: "ThĂ nh cĂ´ng",
+        description: 'ÄĂ£ cáº­p nháº­t tráº¡ng thĂ¡i cho toĂ n bá»™ tĂ i khoáº£n',
       });
     },
     onError: () => {
       toast({
-        title: 'Lỗi',
-        description: 'Không thể cập nhật trạng thái toàn bộ',
+        title: 'Lá»—i',
+        description: 'KhĂ´ng thá»ƒ cáº­p nháº­t tráº¡ng thĂ¡i toĂ n bá»™',
         variant: 'destructive',
       });
     },
@@ -76,14 +77,14 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
       toast({
-        title: "Thành công",
-        description: "Đã cập nhật trạng thái tài khoản",
+        title: "ThĂ nh cĂ´ng",
+        description: "ÄĂ£ cáº­p nháº­t tráº¡ng thĂ¡i tĂ i khoáº£n",
       });
     },
     onError: () => {
       toast({
-        title: "Lỗi",
-        description: "Không thể cập nhật trạng thái",
+        title: "Lá»—i",
+        description: "KhĂ´ng thá»ƒ cáº­p nháº­t tráº¡ng thĂ¡i",
         variant: "destructive",
       });
     },
@@ -99,14 +100,14 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
       setAccountToDelete(null);
       toast({
-        title: "Thành công",
-        description: "Đã xóa tài khoản",
+        title: "ThĂ nh cĂ´ng",
+        description: "ÄĂ£ xĂ³a tĂ i khoáº£n",
       });
     },
     onError: () => {
       toast({
-        title: "Lỗi",
-        description: "Không thể xóa tài khoản",
+        title: "Lá»—i",
+        description: "KhĂ´ng thá»ƒ xĂ³a tĂ i khoáº£n",
         variant: "destructive",
       });
     },
@@ -123,14 +124,14 @@ export default function Dashboard() {
       setSelectedAccounts([]);
       setDeleteMultipleModalOpen(false);
       toast({
-        title: "Thành công",
-        description: "Đã xóa các tài khoản đã chọn",
+        title: "ThĂ nh cĂ´ng",
+        description: "ÄĂ£ xĂ³a cĂ¡c tĂ i khoáº£n Ä‘Ă£ chá»n",
       });
     },
     onError: () => {
       toast({
-        title: "Lỗi",
-        description: "Không thể xóa các tài khoản",
+        title: "Lá»—i",
+        description: "KhĂ´ng thá»ƒ xĂ³a cĂ¡c tĂ i khoáº£n",
         variant: "destructive",
       });
     },
@@ -162,7 +163,7 @@ export default function Dashboard() {
     },
     onError: (error) => {
       toast({
-        title: "Lỗi",
+        title: "Lá»—i",
         description: error.message,
         variant: "destructive",
       });
@@ -173,13 +174,13 @@ export default function Dashboard() {
     try {
       await navigator.clipboard.writeText(text);
       toast({
-        title: "Thành công",
-        description: `Đã copy ${type} vào clipboard!`,
+        title: "ThĂ nh cĂ´ng",
+        description: `ÄĂ£ copy ${type} vĂ o clipboard!`,
       });
     } catch (error) {
       toast({
-        title: "Lỗi",
-        description: "Không thể copy vào clipboard",
+        title: "Lá»—i",
+        description: "KhĂ´ng thá»ƒ copy vĂ o clipboard",
         variant: "destructive",
       });
     }
@@ -231,8 +232,8 @@ export default function Dashboard() {
 
     if (selectedData.length === 0) {
       toast({
-        title: "Chưa có tài khoản",
-        description: "Hãy chọn ít nhất một tài khoản để xuất",
+        title: "ChÆ°a cĂ³ tĂ i khoáº£n",
+        description: "HĂ£y chá»n Ă­t nháº¥t má»™t tĂ i khoáº£n Ä‘á»ƒ xuáº¥t",
       });
       return;
     }
@@ -241,16 +242,16 @@ export default function Dashboard() {
 
     if (!didExport) {
       toast({
-        title: "Lỗi",
-        description: "Không thể tạo file xuất, vui lòng thử lại",
+        title: "Lá»—i",
+        description: "KhĂ´ng thá»ƒ táº¡o file xuáº¥t, vui lĂ²ng thá»­ láº¡i",
         variant: "destructive",
       });
       return;
     }
 
     toast({
-      title: "Thành công",
-      description: `Đã xuất ${selectedData.length} tài khoản đã chọn`,
+      title: "ThĂ nh cĂ´ng",
+      description: `ÄĂ£ xuáº¥t ${selectedData.length} tĂ i khoáº£n Ä‘Ă£ chá»n`,
     });
   };
 
@@ -284,8 +285,8 @@ export default function Dashboard() {
   const handleExportAll = () => {
     if (filteredAccounts.length === 0) {
       toast({
-        title: "Chưa có dữ liệu",
-        description: "Không có tài khoản nào để xuất",
+        title: "ChÆ°a cĂ³ dá»¯ liá»‡u",
+        description: "KhĂ´ng cĂ³ tĂ i khoáº£n nĂ o Ä‘á»ƒ xuáº¥t",
       });
       return;
     }
@@ -294,16 +295,16 @@ export default function Dashboard() {
 
     if (!didExport) {
       toast({
-        title: "Lỗi",
-        description: "Không thể tạo file xuất, vui lòng thử lại",
+        title: "Lá»—i",
+        description: "KhĂ´ng thá»ƒ táº¡o file xuáº¥t, vui lĂ²ng thá»­ láº¡i",
         variant: "destructive",
       });
       return;
     }
 
     toast({
-      title: "Thành công",
-      description: `Đã xuất toàn bộ ${filteredAccounts.length} tài khoản`,
+      title: "ThĂ nh cĂ´ng",
+      description: `ÄĂ£ xuáº¥t toĂ n bá»™ ${filteredAccounts.length} tĂ i khoáº£n`,
     });
   };
 
@@ -321,27 +322,28 @@ export default function Dashboard() {
   const canNext = page < totalPages;
 
   return (
-    <div className="container mx-auto px-6 py-8 max-w-7xl">
+    <div className="container mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
       {/* Page Header */}
-      <div className="mb-8 flex justify-between items-center">
+      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Kho chung sức</h1>
-          <p className="text-muted-foreground">Quản lý và theo dõi tất cả các tài khoản trong hệ thống</p>
+          <h1 className="mb-2 text-2xl font-bold text-foreground sm:text-3xl">Kho chung sức</h1>
+          <p className="text-muted-foreground">Quản lý và theo dõi tất cả các acc làm chung sức trong hệ thống</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={() => navigate('/acclogs')}>
-            Tới acc log
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center md:justify-end">
+          <Button className="w-full sm:w-auto" variant="secondary" onClick={() => navigate('/acclogs')}>
+           Về kho log
           </Button>
-          <Button variant="outline" onClick={logout}>
+          <Button className="w-full sm:w-auto" variant="outline" onClick={logout}>
             <LogOut className="mr-2 h-4 w-4" />
-            Đăng xuất
+           Đăng xuất  
           </Button>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-4 gap-6">
+      <div className="grid gap-6 lg:grid-cols-4">
         {/* Import Section */}
-        <ImportSection 
+        <ImportSection
+          className="hidden lg:block"
           onImport={handleImport}
           isImporting={importAccountsMutation.isPending}
           stats={stats}
@@ -358,8 +360,8 @@ export default function Dashboard() {
             statusFilter={statusFilter}
             onSearchChange={setSearchTerm}
             onStatusFilterChange={setStatusFilter}
-            onCopyUsername={(username) => copyToClipboard(username, 'tài khoản')}
-            onCopyPassword={(password) => copyToClipboard(password, 'mật khẩu')}
+            onCopyUsername={(username) => copyToClipboard(username, 'tĂ i khoáº£n')}
+            onCopyPassword={(password) => copyToClipboard(password, 'máº­t kháº©u')}
             onToggleStatus={handleToggleStatus}
             onDeleteClick={handleDeleteClick}
             selectedAccounts={selectedAccounts}
@@ -377,6 +379,35 @@ export default function Dashboard() {
             onNextPage={() => canNext && setPage((p) => p + 1)}
           />
         </div>
+      </div>
+
+      {/* Mobile Import Entry */}
+      <div className="lg:hidden">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button
+              className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Upload className="h-4 w-4" />
+              Import & Thống kê
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="h-[85vh] overflow-y-auto rounded-t-3xl pb-8">
+            <SheetHeader className="px-1">
+              <SheetTitle>Import & Thống kê</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4 space-y-4">
+              <ImportSection
+                className="mx-auto w-full max-w-lg"
+                onImport={handleImport}
+                isImporting={importAccountsMutation.isPending}
+                stats={stats}
+                onUpdateAll={(status: boolean) => updateAllStatusesMutation.mutate(status)}
+                isUpdatingAll={updateAllStatusesMutation.isPending}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Delete Confirmation Modal */}
@@ -401,13 +432,13 @@ export default function Dashboard() {
       <AlertDialog open={!!importResult} onOpenChange={() => setImportResult(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Kết quả Import</AlertDialogTitle>
+            <AlertDialogTitle>Káº¿t quáº£ Import</AlertDialogTitle>
             <AlertDialogDescription>
-              <p>Đã import thành công: {importResult?.imported || 0} tài khoản.</p>
-              <p>Số tài khoản lỗi: {importResult?.errors || 0}.</p>
+              <p>ÄĂ£ import thĂ nh cĂ´ng: {importResult?.imported || 0} tĂ i khoáº£n.</p>
+              <p>Sá»‘ tĂ i khoáº£n lá»—i: {importResult?.errors || 0}.</p>
               {importResult && importResult.errors > 0 && (
                 <div className="mt-4 max-h-60 overflow-y-auto">
-                  <h4 className="font-semibold">Chi tiết lỗi:</h4>
+                  <h4 className="font-semibold">Chi tiáº¿t lá»—i:</h4>
                   <ul className="list-disc pl-5 text-sm">
                     {importResult.errorDetails.map((err, index) => (
                       <li key={index}>
@@ -420,7 +451,7 @@ export default function Dashboard() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction>Đóng</AlertDialogAction>
+            <AlertDialogAction>ÄĂ³ng</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
