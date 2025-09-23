@@ -359,7 +359,7 @@ export default function AccLogPage() {
         {/* Accounts Table */}
         <div className="lg:col-span-3">
           <AccountTable
-            title="Acc Log"
+            title=""
             emptyMessage="Không có acc log nào được tìm thấy"
             accounts={limitedLogs}
             isLoading={isLoading}
