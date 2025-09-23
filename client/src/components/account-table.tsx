@@ -60,7 +60,7 @@ export default function AccountTable({
   canNext,
   onPrevPage,
   onNextPage,
-  title = "Kho chung sức",
+  title = "",
   emptyMessage = "Không có tài khoản nào được tìm thấy",
 }: AccountTableProps) {
   const handleSelectAll = (checked: boolean) => {
@@ -106,20 +106,20 @@ export default function AccountTable({
           </h2>
           
           {/* Search and Filter */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
             <div className="relative">
               <Input
                 type="text"
                 placeholder="Tìm kiếm tài khoản..."
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-10 w-64"
+                className="pl-10 w-48"
                 data-testid="input-search-accounts"
               />
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             </div>
             <Select value={statusFilter} onValueChange={(value) => onStatusFilterChange(value as "all" | "on" | "off")}>
-              <SelectTrigger className="w-48" data-testid="select-status-filter">
+              <SelectTrigger className="w-36" data-testid="select-status-filter">
                 <SelectValue placeholder="Tất cả trạng thái" />
               </SelectTrigger>
               <SelectContent>
