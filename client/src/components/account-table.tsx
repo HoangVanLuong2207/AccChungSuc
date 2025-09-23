@@ -106,9 +106,9 @@ export default function AccountTable({
           </h2>
           
           {/* Search and Filter */}
-          <div className="flex w-full items-center gap-2 sm:flex-nowrap">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:w-auto">
             {/* Search */}
-            <div className="relative flex-none w-36 sm:w-40">
+            <div className="relative w-full sm:w-60 lg:w-72">
               <Input
                 type="text"
                 placeholder="Tìm kiếm tên lô..."
@@ -122,7 +122,7 @@ export default function AccountTable({
 
             {/* Status */}
             <Select value={statusFilter} onValueChange={(v) => onStatusFilterChange(v as "all" | "on" | "off")}>
-              <SelectTrigger className="h-8 w-28 text-sm" data-testid="select-status-filter">
+              <SelectTrigger className="h-8 w-full text-sm sm:w-36" data-testid="select-status-filter">
                 <SelectValue placeholder="Trạng thái" />
               </SelectTrigger>
               <SelectContent>
@@ -133,22 +133,22 @@ export default function AccountTable({
             </Select>
 
             {/* Buttons */}
-            <Button className="h-8 flex-none px-3 text-sm" variant="outline" size="sm" onClick={onExportAll} disabled={totalCount === 0}>
+            <Button className="h-8 w-full px-3 text-sm sm:w-auto" variant="outline" size="sm" onClick={onExportAll} disabled={totalCount === 0}>
               <Download className="mr-1.5 h-4 w-4" />
               Xuất tất cả
             </Button>
 
-            <Button className="h-8 flex-none px-3 text-sm" variant="outline" size="sm" onClick={onExportSelected} disabled={selectedAccounts.length === 0}>
+            <Button className="h-8 w-full px-3 text-sm sm:w-auto" variant="outline" size="sm" onClick={onExportSelected} disabled={selectedAccounts.length === 0}>
               <Download className="mr-1.5 h-4 w-4" />
               Xuất JS
             </Button>
 
-            <Button className="h-8 flex-none px-3 text-sm" variant="destructive" size="sm" onClick={onDeleteSelected} disabled={selectedAccounts.length === 0}>
+            <Button className="h-8 w-full px-3 text-sm sm:w-auto" variant="destructive" size="sm" onClick={onDeleteSelected} disabled={selectedAccounts.length === 0}>
               <Trash2 className="mr-1.5 h-4 w-4" />
               Xóa ({selectedAccounts.length})
             </Button>
 
-            <Button className="h-8 flex-none px-3 text-sm" variant="destructive" size="sm" onClick={onDeleteAll}>
+            <Button className="h-8 w-full px-3 text-sm sm:w-auto" variant="destructive" size="sm" onClick={onDeleteAll}>
               <Trash2 className="mr-1.5 h-4 w-4" />
               Xóa tất cả
             </Button>
@@ -159,7 +159,7 @@ export default function AccountTable({
 
       {/* Table Content */}
       <div className="overflow-x-auto pb-4">
-        <table className="w-full min-w-[720px]">
+        <table className="w-full min-w-full sm:min-w-[720px]">
           <thead className="bg-muted">
             <tr>
               <th className="px-4 py-3">
@@ -206,24 +206,24 @@ export default function AccountTable({
                       aria-label={`Select row ${account.id}`}
                     />
                   </td>
-                  <td className="px-4 py-4 sm:px-6 whitespace-nowrap text-sm font-medium text-card-foreground">
+                  <td className="px-4 py-4 sm:px-6 text-sm font-medium text-card-foreground sm:whitespace-nowrap">
                     {account.id.toString().padStart(3, '0')}
                   </td>
-                  <td className="px-4 py-4 sm:px-6 whitespace-nowrap text-sm text-card-foreground">
+                  <td className="px-4 py-4 sm:px-6 text-sm text-card-foreground sm:whitespace-nowrap">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
                       <span className="font-mono bg-muted px-2 py-1 rounded text-xs" data-testid={`text-username-${account.id}`}>
                         {account.username}
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-4 sm:px-6 whitespace-nowrap text-sm text-card-foreground">
+                  <td className="px-4 py-4 sm:px-6 text-sm text-card-foreground sm:whitespace-nowrap">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono bg-muted px-2 py-1 rounded text-xs">
                         ••••••••
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-4 sm:px-6 whitespace-nowrap">
+                  <td className="px-4 py-4 sm:px-6 text-sm leading-tight sm:whitespace-nowrap">
                     <span 
                       className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
                         account.status ? 'status-on' : 'status-off'
@@ -234,7 +234,7 @@ export default function AccountTable({
                       {account.status ? 'ON' : 'OFF'}
                     </span>
                   </td>
-                  <td className="px-4 py-4 sm:px-6 whitespace-nowrap text-sm font-medium">
+                  <td className="px-4 py-4 sm:px-6 text-sm font-medium sm:whitespace-nowrap">
                     {new Date(account.updatedAt).toLocaleString("sv-SE", {
                       year: "numeric",
                       month: "2-digit",
@@ -243,7 +243,7 @@ export default function AccountTable({
                       minute: "2-digit"
                     }).replace("T", " ")}
                   </td>
-                  <td className="px-4 py-4 sm:px-6 whitespace-nowrap text-sm font-medium">
+                  <td className="px-4 py-4 sm:px-6 text-sm font-medium sm:whitespace-nowrap">
                     <div className="flex flex-wrap items-center gap-2">
                       <Button
                         size="sm"
@@ -316,4 +316,3 @@ export default function AccountTable({
     </div>
   );
 }
-
