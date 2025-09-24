@@ -25,16 +25,19 @@ interface AccountTableProps {
   onExportSelected: () => void;
   onExportAll: () => void;
   onDeleteAll: () => void;
-  totalCount: number; // tổng số bản ghi sau khi lọc (để hiển thị footer)
+  totalCount: number; // tong so ban ghi sau khi loc (de hien thi footer)
   page: number;
   pageSize: number;
+  pageSizeOptions?: number[];
   canPrev: boolean;
   canNext: boolean;
   onPrevPage: () => void;
   onNextPage: () => void;
+  onPageSizeChange: (pageSize: number) => void;
   title?: string;
   emptyMessage?: string;
 }
+
 
 export default function AccountTable({
   accounts,
@@ -56,10 +59,12 @@ export default function AccountTable({
   totalCount,
   page,
   pageSize,
+  pageSizeOptions = [10, 20, 50, 100],
   canPrev,
   canNext,
   onPrevPage,
   onNextPage,
+  onPageSizeChange,
   title = "",
   emptyMessage = "Không có tài khoản nào được tìm thấy",
 }: AccountTableProps) {
@@ -78,6 +83,11 @@ export default function AccountTable({
       onSelectedAccountsChange(selectedAccounts.filter((id) => id !== accountId));
     }
   };
+
+  const baseIndex = (page - 1) * pageSize;
+  const displayStart = totalCount === 0 ? 0 : Math.min(baseIndex + 1, totalCount);
+  const displayEnd = totalCount === 0 ? 0 : Math.min(baseIndex + accounts.length, totalCount);
+  const safePageSizeOptions = Array.from(new Set([...pageSizeOptions, pageSize])).sort((a, b) => a - b);
 
   const isAllSelected = accounts.length > 0 && selectedAccounts.length === accounts.length;
   if (isLoading) {
@@ -299,18 +309,35 @@ export default function AccountTable({
       <div className="border-t border-border bg-muted/30 px-4 py-4 sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-center text-sm text-muted-foreground sm:text-left">
-            Hiển thị <span className="font-medium">{(page - 1) * pageSize + 1}-{(page - 1) * pageSize + accounts.length}</span> của <span className="font-medium">{totalCount}</span> tài khoản
+            Hien thi <span className="font-medium">{displayStart}-{displayEnd}</span> cua <span className="font-medium">{totalCount}</span> tai khoan
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
-            <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={onPrevPage} disabled={!canPrev}>
-              Trước
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Trang <span className="font-medium">{page}</span>
-            </span>
-            <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={onNextPage} disabled={!canNext}>
-              Sau
-            </Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Dong/trang</span>
+              <Select value={String(pageSize)} onValueChange={(value) => onPageSizeChange(Number(value))}>
+                <SelectTrigger className="h-8 w-[100px] text-sm" data-testid="select-page-size">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {safePageSizeOptions.map((option) => (
+                    <SelectItem key={option} value={String(option)}>
+                      {option} dong
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+              <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={onPrevPage} disabled={!canPrev}>
+                Truoc
+              </Button>
+              <span className="text-center text-sm text-muted-foreground sm:text-left">
+                Trang <span className="font-medium">{page}</span>
+              </span>
+              <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={onNextPage} disabled={!canNext}>
+                Sau
+              </Button>
+            </div>
           </div>
         </div>
       </div>

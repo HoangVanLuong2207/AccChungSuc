@@ -91,7 +91,8 @@ export default function Dashboard() {
 
   // Pagination state
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const [pageSize, setPageSize] = useState(20);
+  const pageSizeOptions = [10, 20, 50, 100];
 
   useEffect(() => {
     return () => {
@@ -114,14 +115,14 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
       toast({
-        title: "ThĂ nh cĂ´ng",
-        description: 'ÄĂ£ cáº­p nháº­t tráº¡ng thĂ¡i cho toĂ n bá»™ tĂ i khoáº£n',
+        title: "Thành công",
+        description: 'Đã cập nhật trạng thái toàn bộ tài khoản',
       });
     },
     onError: () => {
       toast({
-        title: 'Lá»—i',
-        description: 'KhĂ´ng thá»ƒ cáº­p nháº­t tráº¡ng thĂ¡i toĂ n bá»™',
+        title: 'Lỗi',
+        description: 'Không thể cập nhật trạng thái toàn bộ tài khoản',
         variant: 'destructive',
       });
     },
@@ -141,14 +142,14 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
       toast({
-        title: "ThĂ nh cĂ´ng",
-        description: "ÄĂ£ cáº­p nháº­t tráº¡ng thĂ¡i tĂ i khoáº£n",
+        title: "Thành công",
+        description: "Tài khoản đã được cập nhật trạng thái",
       });
     },
     onError: () => {
       toast({
-        title: "Lá»—i",
-        description: "KhĂ´ng thá»ƒ cáº­p nháº­t tráº¡ng thĂ¡i",
+        title: "Lỗi",
+        description: "Không thể cập nhật trạng thái tài khoản",
         variant: "destructive",
       });
     },
@@ -164,14 +165,14 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/accounts/stats'] });
       setAccountToDelete(null);
       toast({
-        title: "ThĂ nh cĂ´ng",
-        description: "ÄĂ£ xĂ³a tĂ i khoáº£n",
+        title: "Thành công",
+        description: "Tài khoản đã được xóa",
       });
     },
     onError: () => {
       toast({
-        title: "Lá»—i",
-        description: "KhĂ´ng thá»ƒ xĂ³a tĂ i khoáº£n",
+        title: "Lỗi",
+        description: "Không thể xóa tài khoản",
         variant: "destructive",
       });
     },
@@ -188,14 +189,14 @@ export default function Dashboard() {
       setSelectedAccounts([]);
       setDeleteMultipleModalOpen(false);
       toast({
-        title: "ThĂ nh cĂ´ng",
-        description: "ÄĂ£ xĂ³a cĂ¡c tĂ i khoáº£n Ä‘Ă£ chá»n",
+        title: "Thành công",
+        description: "Các tài khoản đã được xóa",
       });
     },
     onError: () => {
       toast({
-        title: "Lá»—i",
-        description: "KhĂ´ng thá»ƒ xĂ³a cĂ¡c tĂ i khoáº£n",
+        title: "Lỗi",
+        description: "Không thể xóa các tài khoản",
         variant: "destructive",
       });
     },
@@ -243,13 +244,13 @@ export default function Dashboard() {
     try {
       await navigator.clipboard.writeText(text);
       toast({
-        title: "ThĂ nh cĂ´ng",
-        description: `ÄĂ£ copy ${type} vĂ o clipboard!`,
+        title: "Thành công",
+        description: `Đã copy ${type} vào clipboard!`,
       });
     } catch (error) {
       toast({
-        title: "Lá»—i",
-        description: "KhĂ´ng thá»ƒ copy vĂ o clipboard",
+        title: "Lỗi",
+        description: "Không thể copy vào clipboard",
         variant: "destructive",
       });
     }
@@ -340,8 +341,8 @@ export default function Dashboard() {
 
     if (selectedData.length === 0) {
       toast({
-        title: "ChÆ°a cĂ³ tĂ i khoáº£n",
-        description: "HĂ£y chá»n Ă­t nháº¥t má»™t tĂ i khoáº£n Ä‘á»ƒ xuáº¥t",
+        title: "Chưa chọn tài khoản",
+        description: "Vui lòng chọn ít nhất một tài khoản để xuất",
       });
       return;
     }
@@ -350,16 +351,16 @@ export default function Dashboard() {
 
     if (!didExport) {
       toast({
-        title: "Lá»—i",
-        description: "KhĂ´ng thá»ƒ táº¡o file xuáº¥t, vui lĂ²ng thá»­ láº¡i",
+        title: "Lỗi",
+        description: "Không thể tạo file xuất, vui lòng thử lại",
         variant: "destructive",
       });
       return;
     }
 
     toast({
-      title: "ThĂ nh cĂ´ng",
-      description: `ÄĂ£ xuáº¥t ${selectedData.length} tĂ i khoáº£n Ä‘Ă£ chá»n`,
+      title: "Thành công",
+      description: `Đã xuất ${selectedData.length} tài khoản đã chọn`,
     });
   };
 
@@ -371,6 +372,11 @@ export default function Dashboard() {
   const handleDeleteAll = () => {
     setDeleteAll(true);
     setDeleteMultipleModalOpen(true);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setPage(1);
   };
 
   const handleConfirmDeleteMultiple = () => {
@@ -393,8 +399,8 @@ export default function Dashboard() {
   const handleExportAll = () => {
     if (filteredAccounts.length === 0) {
       toast({
-        title: "ChÆ°a cĂ³ dá»¯ liá»‡u",
-        description: "KhĂ´ng cĂ³ tĂ i khoáº£n nĂ o Ä‘á»ƒ xuáº¥t",
+        title: "Chưa có dữ liệu",
+        description: "Không có tài khoản nào để xuất",
       });
       return;
     }
@@ -403,16 +409,16 @@ export default function Dashboard() {
 
     if (!didExport) {
       toast({
-        title: "Lá»—i",
-        description: "KhĂ´ng thá»ƒ táº¡o file xuáº¥t, vui lĂ²ng thá»­ láº¡i",
+        title: "Lỗi",
+        description: "Không thể tạo file xuất, vui lòng thử lại",
         variant: "destructive",
       });
       return;
     }
 
     toast({
-      title: "ThĂ nh cĂ´ng",
-      description: `ÄĂ£ xuáº¥t toĂ n bá»™ ${filteredAccounts.length} tĂ i khoáº£n`,
+      title: "Thành công",
+      description: `Đã xuất toàn bộ ${filteredAccounts.length} tài khoản`,
     });
   };
 
@@ -428,6 +434,13 @@ export default function Dashboard() {
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const canPrev = page > 1;
   const canNext = page < totalPages;
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(totalCount / pageSize));
+    if (page > maxPage) {
+      setPage(maxPage);
+    }
+  }, [page, pageSize, totalCount]);
 
   return (
     <div className="container mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
@@ -468,8 +481,8 @@ export default function Dashboard() {
             statusFilter={statusFilter}
             onSearchChange={setSearchTerm}
             onStatusFilterChange={setStatusFilter}
-            onCopyUsername={(username) => copyToClipboard(username, 'tĂ i khoáº£n')}
-            onCopyPassword={(password) => copyToClipboard(password, 'máº­t kháº©u')}
+            onCopyUsername={(username) => copyToClipboard(username, 'tài khoản')}
+            onCopyPassword={(password) => copyToClipboard(password, 'mật khẩu')}
             onToggleStatus={handleToggleStatus}
             onDeleteClick={handleDeleteClick}
             selectedAccounts={selectedAccounts}
@@ -481,10 +494,12 @@ export default function Dashboard() {
             totalCount={totalCount}
             page={page}
             pageSize={pageSize}
+            pageSizeOptions={pageSizeOptions}
             canPrev={canPrev}
             canNext={canNext}
             onPrevPage={() => canPrev && setPage((p) => p - 1)}
             onNextPage={() => canNext && setPage((p) => p + 1)}
+            onPageSizeChange={handlePageSizeChange}
           />
         </div>
       </div>
@@ -594,7 +609,7 @@ export default function Dashboard() {
       <AlertDialog open={!!importResult} onOpenChange={() => setImportResult(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Káº¿t quáº£ Import</AlertDialogTitle>
+            <AlertDialogTitle>Kết quả Import</AlertDialogTitle>
             <AlertDialogDescription>
               {lastImportMeta && (
                 <p>
@@ -603,11 +618,11 @@ export default function Dashboard() {
                   }.
                 </p>
               )}
-              <p>ÄĂ£ import thĂ nh cĂ´ng: {importResult?.imported || 0} tĂ i khoáº£n.</p>
-              <p>Sá»‘ tĂ i khoáº£n lá»—i: {importResult?.errors || 0}.</p>
+              <p>Đã import thành công: {importResult?.imported || 0} tài khoản.</p>
+              <p>Số tài khoản lỗi: {importResult?.errors || 0}.</p>
               {importResult && importResult.errors > 0 && (
                 <div className="mt-4 max-h-60 overflow-y-auto">
-                  <h4 className="font-semibold">Chi tiáº¿t lá»—i:</h4>
+                  <h4 className="font-semibold">Chi tiết lỗi:</h4>
                   <ul className="list-disc pl-5 text-sm">
                     {importResult.errorDetails.map((err, index) => (
                       <li key={index}>
@@ -620,7 +635,7 @@ export default function Dashboard() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction>ÄĂ³ng</AlertDialogAction>
+            <AlertDialogAction>Đóng</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
