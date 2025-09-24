@@ -4,6 +4,7 @@ import { apiRequest } from '@/lib/queryClient';
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
+  isAuthenticating: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   error: string | null;
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (username: string, password: string) => {
     console.log('Attempting to login with:', { username });
     setError(null);
+    setIsAuthenticating(true);
     try {
       // If the apiRequest promise resolves, it means the login was successful (status 2xx).
       // The function throws an error for non-2xx statuses, which is caught below.
@@ -47,6 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Login failed with error:', e);
       setError(e.message || 'Đăng nhập thất bại');
       setIsAuthenticated(false);
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
@@ -60,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, login, logout, error }}>
+    <AuthContext.Provider value={{ isAuthenticated, isLoading, isAuthenticating, login, logout, error }}>
       {children}
     </AuthContext.Provider>
   );

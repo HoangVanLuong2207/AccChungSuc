@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const { login, error, isAuthenticated } = useAuth();
+  const { login, error, isAuthenticated, isAuthenticating } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,6 +21,9 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isAuthenticating) {
+      return;
+    }
     await login(username, password);
   };
 
@@ -42,6 +46,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                disabled={isAuthenticating}
               />
             </div>
             <div className="space-y-2">
@@ -52,11 +57,19 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={isAuthenticating}
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full">
-              Đăng nhập
+            <Button type="submit" className="w-full" disabled={isAuthenticating} aria-busy={isAuthenticating}>
+              {isAuthenticating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                  Đang xác thực...
+                </>
+              ) : (
+                'Đăng nhập'
+              )}
             </Button>
           </form>
         </CardContent>
