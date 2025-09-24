@@ -592,7 +592,7 @@ const importLogsMutation = useMutation({
             <DialogDescription>
               {importProgressMeta ? (
                 <span className="block">
-                  Đang xử lý' '}
+                  Đang xử lý{' '}
                   {importProgressMeta.total !== null ? (
                     <span className="font-medium text-foreground">
                       {importProgressMeta.total} acc log
