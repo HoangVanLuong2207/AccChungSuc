@@ -14,7 +14,7 @@ interface ImportSectionLabels {
 
 interface ImportSectionProps {
   className?: string;
-  onImport: (file: File) => void;
+  onImport: (file: File) => Promise<void> | void;
   isImporting: boolean;
   stats?: {
     total: number;
@@ -53,9 +53,16 @@ export default function ImportSection({
     }
   };
 
-  const handleImport = () => {
-    if (selectedFile) {
-      onImport(selectedFile);
+  const handleImport = async () => {
+    if (!selectedFile) {
+      return;
+    }
+
+    try {
+      await onImport(selectedFile);
+    } catch (error) {
+      console.error('Failed to import accounts', error);
+    } finally {
       setSelectedFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';

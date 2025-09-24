@@ -106,53 +106,54 @@ export default function AccountTable({
           </h2>
           
           {/* Search and Filter */}
-          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:w-auto">
-            {/* Search */}
-            <div className="relative w-full sm:w-60 lg:w-72">
-              <Input
-                type="text"
-                placeholder="Tìm kiếm tên lô..."
-                value={searchTerm}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="h-8 w-full pl-8 pr-2 text-sm"
-                data-testid="input-search-accounts"
-              />
-              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            </div>
-
-            {/* Status */}
-            <Select value={statusFilter} onValueChange={(v) => onStatusFilterChange(v as "all" | "on" | "off")}>
-              <SelectTrigger className="h-8 w-full text-sm sm:w-36" data-testid="select-status-filter">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="on">Đang hoạt động</SelectItem>
-                <SelectItem value="off">Tạm dừng</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Buttons */}
-            <Button className="h-8 w-full px-3 text-sm sm:w-auto" variant="outline" size="sm" onClick={onExportAll} disabled={totalCount === 0}>
-              <Download className="mr-1.5 h-4 w-4" />
-              Xuất tất cả
-            </Button>
-
-            <Button className="h-8 w-full px-3 text-sm sm:w-auto" variant="outline" size="sm" onClick={onExportSelected} disabled={selectedAccounts.length === 0}>
-              <Download className="mr-1.5 h-4 w-4" />
-              Xuất JS
-            </Button>
-
-            <Button className="h-8 w-full px-3 text-sm sm:w-auto" variant="destructive" size="sm" onClick={onDeleteSelected} disabled={selectedAccounts.length === 0}>
-              <Trash2 className="mr-1.5 h-4 w-4" />
-              Xóa ({selectedAccounts.length})
-            </Button>
-
-            <Button className="h-8 w-full px-3 text-sm sm:w-auto" variant="destructive" size="sm" onClick={onDeleteAll}>
-              <Trash2 className="mr-1.5 h-4 w-4" />
-              Xóa tất cả
-            </Button>
+         <div className="flex w-full items-center gap-5 sm:flex-nowrap">
+          {/* Search */}
+          <div className="relative flex-none w-36 sm:w-40">
+            <Input
+              type="text"
+              placeholder="Tìm kiếm..."
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="h-8 w-full pl-8 pr-2 text-sm"
+              data-testid="input-search-accounts"
+            />
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           </div>
+
+  {/* Status */}
+  <Select value={statusFilter} onValueChange={(v) => onStatusFilterChange(v as "all" | "on" | "off")}>
+    <SelectTrigger className="h-8 w-28 text-sm" data-testid="select-status-filter">
+      <SelectValue placeholder="Trạng thái" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="all">Tất cả</SelectItem>
+      <SelectItem value="on">Đang hoạt động</SelectItem>
+      <SelectItem value="off">Tạm dừng</SelectItem>
+    </SelectContent>
+  </Select>
+
+  {/* Buttons */}
+  <Button className="h-8 flex-none px-3 text-sm" variant="outline" size="sm" onClick={onExportAll} disabled={totalCount === 0}>
+    <Download className="mr-1.5 h-4 w-4" />
+    Xuất tất cả
+  </Button>
+
+  <Button className="h-8 flex-none px-3 text-sm" variant="outline" size="sm" onClick={onExportSelected} disabled={selectedAccounts.length === 0}>
+    <Download className="mr-1.5 h-4 w-4" />
+    Xuất JS
+  </Button>
+
+  <Button className="h-8 flex-none px-3 text-sm" variant="destructive" size="sm" onClick={onDeleteSelected} disabled={selectedAccounts.length === 0}>
+    <Trash2 className="mr-1.5 h-4 w-4" />
+    Xóa ({selectedAccounts.length})
+  </Button>
+
+  <Button className="h-8 flex-none px-3 text-sm" variant="destructive" size="sm" onClick={onDeleteAll}>
+    <Trash2 className="mr-1.5 h-4 w-4" />
+    Xóa tất cả
+  </Button>
+</div>
+
 
         </div>
       </div>
