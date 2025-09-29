@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import type { Account, AccLog } from "@shared/schema";
 
 type AccountLike = Account | AccLog;
@@ -25,7 +26,7 @@ interface AccountTableProps {
   onExportSelected: () => void;
   onExportAll: () => void;
   onDeleteAll: () => void;
-  totalCount: number; // tong so ban ghi sau khi loc (de hien thi footer)
+  totalCount: number;
   page: number;
   pageSize: number;
   pageSizeOptions?: number[];
@@ -38,6 +39,15 @@ interface AccountTableProps {
   emptyMessage?: string;
 }
 
+const formatUpdatedAt = (value: AccountLike["updatedAt"]) =>
+  new Date(value).toLocaleString("vi-VN", {
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 export default function AccountTable({
   accounts,
@@ -65,7 +75,7 @@ export default function AccountTable({
   onPrevPage,
   onNextPage,
   onPageSizeChange,
-  title = "",
+  title = "Danh sách tài khoản",
   emptyMessage = "Không có tài khoản nào được tìm thấy",
 }: AccountTableProps) {
   const handleSelectAll = (checked: boolean) => {
@@ -90,15 +100,18 @@ export default function AccountTable({
   const safePageSizeOptions = Array.from(new Set([...pageSizeOptions, pageSize])).sort((a, b) => a - b);
 
   const isAllSelected = accounts.length > 0 && selectedAccounts.length === accounts.length;
+  const selectedCount = selectedAccounts.length;
+  const hasSelection = selectedCount > 0;
+
   if (isLoading) {
     return (
-      <div className="bg-card border border-border rounded-lg shadow-sm">
-        <div className="border-b border-border px-4 py-4 sm:px-6">
+      <div className="rounded-3xl border border-border/70 bg-card shadow-sm">
+        <div className="border-b border-border/70 px-4 py-5 sm:px-6">
           <Skeleton className="h-6 w-48" />
         </div>
-        <div className="space-y-4 p-4 sm:p-6">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+        <div className="space-y-3 px-4 py-6 sm:px-6">
+          {[...Array(4)].map((_, index) => (
+            <Skeleton key={index} className="h-12 w-full rounded-2xl" />
           ))}
         </div>
       </div>
@@ -106,235 +119,313 @@ export default function AccountTable({
   }
 
   return (
-    <div className="bg-card border border-border rounded-lg shadow-sm">
-      {/* Table Header */}
-      <div className="border-b border-border px-4 py-4 sm:px-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-card-foreground">
-            <Users className="h-5 w-5 text-primary" />
-            {title}
-          </h2>
-          
-          {/* Search and Filter */}
-         <div className="flex w-full items-center gap-5 sm:flex-nowrap">
-          {/* Search */}
-          <div className="relative flex-none w-36 sm:w-40">
-            <Input
-              type="text"
-              placeholder="Tìm kiếm..."
-              value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="h-8 w-full pl-8 pr-2 text-sm"
-              data-testid="input-search-accounts"
-            />
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+    <div className="rounded-3xl border border-border/70 bg-card shadow-sm">
+      <div className="flex flex-col gap-4 border-b border-border/70 px-4 py-5 sm:px-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-center gap-3 text-card-foreground">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Users className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 className="text-lg font-semibold sm:text-xl">{title}</h2>
+              <p className="text-sm text-muted-foreground">
+                {totalCount} mục · {selectedCount} đang chọn
+              </p>
+            </div>
           </div>
+          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-end">
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:gap-3 md:w-auto md:flex-nowrap">
+              <div className="relative w-full sm:w-[240px]">
+                <Input
+                  type="text"
+                  placeholder="Tìm kiếm tài khoản..."
+                  value={searchTerm}
+                  onChange={(event) => onSearchChange(event.target.value)}
+                  className="h-10 w-full rounded-2xl border-border/70 pl-10 pr-3 text-sm"
+                  data-testid="input-search-accounts"
+                />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
 
-  {/* Status */}
-  <Select value={statusFilter} onValueChange={(v) => onStatusFilterChange(v as "all" | "on" | "off")}>
-    <SelectTrigger className="h-8 w-28 text-sm" data-testid="select-status-filter">
-      <SelectValue placeholder="Trạng thái" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="all">Tất cả</SelectItem>
-      <SelectItem value="on">Đang hoạt động</SelectItem>
-      <SelectItem value="off">Tạm dừng</SelectItem>
-    </SelectContent>
-  </Select>
+              <Select value={statusFilter} onValueChange={(value) => onStatusFilterChange(value as "all" | "on" | "off")}>
+                <SelectTrigger className="h-10 w-full rounded-2xl border-border/70 text-sm sm:w-[180px]" data-testid="select-status-filter">
+                  <SelectValue placeholder="Trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="on">Đang hoạt động</SelectItem>
+                  <SelectItem value="off">Tạm dừng</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-  {/* Buttons */}
-  <Button className="h-8 flex-none px-3 text-sm" variant="outline" size="sm" onClick={onExportAll} disabled={totalCount === 0}>
-    <Download className="mr-1.5 h-4 w-4" />
-    Xuất tất cả
-  </Button>
-
-  <Button className="h-8 flex-none px-3 text-sm" variant="outline" size="sm" onClick={onExportSelected} disabled={selectedAccounts.length === 0}>
-    <Download className="mr-1.5 h-4 w-4" />
-    Xuất JS
-  </Button>
-
-  <Button className="h-8 flex-none px-3 text-sm" variant="destructive" size="sm" onClick={onDeleteSelected} disabled={selectedAccounts.length === 0}>
-    <Trash2 className="mr-1.5 h-4 w-4" />
-    Xóa ({selectedAccounts.length})
-  </Button>
-
-  <Button className="h-8 flex-none px-3 text-sm" variant="destructive" size="sm" onClick={onDeleteAll}>
-    <Trash2 className="mr-1.5 h-4 w-4" />
-    Xóa tất cả
-  </Button>
-</div>
-
-
+            <div className="flex flex-wrap items-center gap-2 md:justify-end">
+              <Button
+                className="h-10 rounded-2xl border-border/60 px-3 text-sm"
+                variant="outline"
+                size="sm"
+                onClick={onExportAll}
+                disabled={totalCount === 0}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Xuất tất cả
+              </Button>
+              <Button
+                className="h-10 rounded-2xl border-border/60 px-3 text-sm"
+                variant="outline"
+                size="sm"
+                onClick={onExportSelected}
+                disabled={!hasSelection}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Xuất JS
+              </Button>
+              <Button
+                className="h-10 rounded-2xl px-3 text-sm"
+                variant="destructive"
+                size="sm"
+                onClick={onDeleteSelected}
+                disabled={!hasSelection}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Xóa ({selectedCount})
+              </Button>
+              <Button className="h-10 rounded-2xl px-3 text-sm" variant="destructive" size="sm" onClick={onDeleteAll}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Xóa tất cả
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Table Content */}
-      <div className="overflow-x-auto pb-4">
-        <table className="w-full min-w-full sm:min-w-[720px]">
-          <thead className="bg-muted">
-            <tr>
-              <th className="px-4 py-3">
-                <Checkbox
-                  checked={isAllSelected}
-                  onCheckedChange={handleSelectAll}
-                  aria-label="Select all rows"
-                />
-              </th>
-              <th className="px-4 py-3 sm:px-6 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                ID
-              </th>
-              <th className="px-4 py-3 sm:px-6 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Tài khoản
-              </th>
-              <th className="px-4 py-3 sm:px-6 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Mật khẩu
-              </th>
-              <th className="px-4 py-3 sm:px-6 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Trạng thái
-              </th>
-              <th className="px-4 py-3 sm:px-6 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Lần cuối login
-              </th>
-              <th className="px-4 py-3 sm:px-6 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Thao tác
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-card divide-y divide-border">
-            {accounts.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 sm:px-6 text-center text-muted-foreground">
-                  {emptyMessage}
-                </td>
+      <div className="hidden lg:block">
+        <div className="overflow-hidden">
+          <table className="w-full min-w-[880px] table-fixed">
+            <thead className="bg-muted/60">
+              <tr className="text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <th className="w-[48px] px-4 py-3">
+                  <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} aria-label="Chọn tất cả" />
+                </th>
+                <th className="w-[72px] px-4 py-3">ID</th>
+                <th className="px-4 py-3">Tài khoản</th>
+                <th className="px-4 py-3">Mật khẩu</th>
+                <th className="w-[160px] px-4 py-3">Trạng thái</th>
+                <th className="w-[180px] px-4 py-3">Cập nhật</th>
+                <th className="w-[220px] px-4 py-3">Thao tác</th>
               </tr>
-            ) : (
-              accounts.map((account) => (
-                <tr key={account.id} className="hover:bg-muted/50 transition-colors" data-testid={`row-account-${account.id}`}>
-                   <td className="px-4 py-4">
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {accounts.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-10 text-center text-sm text-muted-foreground">
+                    {emptyMessage}
+                  </td>
+                </tr>
+              ) : (
+                accounts.map((account) => {
+                  const statusClasses = account.status
+                    ? "bg-emerald-500/15 text-emerald-600"
+                    : "bg-rose-500/15 text-rose-600";
+
+                  return (
+                    <tr key={account.id} className="transition-colors hover:bg-muted/40" data-testid={`row-account-${account.id}`}>
+                      <td className="px-4 py-4">
+                        <Checkbox
+                          checked={selectedAccounts.includes(account.id)}
+                          onCheckedChange={(checked) => handleSelectRow(account.id, !!checked)}
+                          aria-label={`Chọn dòng ${account.id}`}
+                        />
+                      </td>
+                      <td className="px-4 py-4 text-sm font-semibold text-card-foreground">#{account.id.toString().padStart(3, "0")}</td>
+                      <td className="px-4 py-4">
+                        <span className="inline-flex items-center gap-2 rounded-2xl bg-muted px-3 py-2 font-mono text-sm text-card-foreground" data-testid={`text-username-${account.id}`}>
+                          {account.username}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="inline-flex items-center gap-2 rounded-2xl bg-muted px-3 py-2 font-mono text-sm text-muted-foreground">
+                          ••••••••
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <Badge
+                          data-testid={`status-${account.id}`}
+                          className={`inline-flex h-8 items-center gap-2 rounded-full border-0 px-3 text-xs font-semibold ${statusClasses}`}
+                        >
+                          <span className="h-2 w-2 rounded-full bg-current" />
+                          {account.status ? "ON" : "OFF"}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-muted-foreground">
+                        {formatUpdatedAt(account.updatedAt)}
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 w-9 rounded-full border-primary/40 text-primary hover:bg-primary/10"
+                            onClick={() => onCopyUsername(account.username)}
+                            data-testid={`button-copy-username-${account.id}`}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 w-9 rounded-full border-primary/40 text-primary hover:bg-primary/10"
+                            onClick={() => onCopyPassword(account.password)}
+                            data-testid={`button-copy-password-${account.id}`}
+                          >
+                            <Key className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className={`h-9 w-9 rounded-full ${
+                              account.status
+                                ? "border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10"
+                                : "border-amber-500/40 text-amber-600 hover:bg-amber-500/10"
+                            }`}
+                            onClick={() => onToggleStatus(account)}
+                            data-testid={`button-toggle-status-${account.id}`}
+                          >
+                            {account.status ? <Check className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 w-9 rounded-full border-rose-500/40 text-rose-600 hover:bg-rose-500/10"
+                            onClick={() => onDeleteClick(account)}
+                            data-testid={`button-delete-${account.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="lg:hidden">
+        {accounts.length === 0 ? (
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground sm:px-6">{emptyMessage}</div>
+        ) : (
+          <div className="flex flex-col gap-4 px-4 pb-6 sm:px-6">
+            {accounts.map((account) => {
+              const statusClasses = account.status
+                ? "bg-emerald-500/15 text-emerald-600"
+                : "bg-rose-500/15 text-rose-600";
+
+              return (
+                <div key={account.id} className="rounded-3xl border border-border/70 bg-card p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold uppercase text-muted-foreground">#{account.id.toString().padStart(3, "0")}</div>
+                      <div className="text-base font-semibold text-card-foreground" data-testid={`text-username-${account.id}`}>
+                        {account.username}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Cập nhật {formatUpdatedAt(account.updatedAt)}</div>
+                      <Badge className={`mt-2 inline-flex items-center gap-2 rounded-full border-0 px-3 py-1 text-xs font-semibold ${statusClasses}`} data-testid={`status-${account.id}`}>
+                        <span className="h-2 w-2 rounded-full bg-current" />
+                        {account.status ? "ON" : "OFF"}
+                      </Badge>
+                    </div>
                     <Checkbox
                       checked={selectedAccounts.includes(account.id)}
                       onCheckedChange={(checked) => handleSelectRow(account.id, !!checked)}
-                      aria-label={`Select row ${account.id}`}
+                      aria-label={`Chọn tài khoản ${account.username}`}
                     />
-                  </td>
-                  <td className="px-4 py-4 sm:px-6 text-sm font-medium text-card-foreground sm:whitespace-nowrap">
-                    {account.id.toString().padStart(3, '0')}
-                  </td>
-                  <td className="px-4 py-4 sm:px-6 text-sm text-card-foreground sm:whitespace-nowrap">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
-                      <span className="font-mono bg-muted px-2 py-1 rounded text-xs" data-testid={`text-username-${account.id}`}>
-                        {account.username}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 sm:px-6 text-sm text-card-foreground sm:whitespace-nowrap">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono bg-muted px-2 py-1 rounded text-xs">
-                        ••••••••
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 sm:px-6 text-sm leading-tight sm:whitespace-nowrap">
-                    <span 
-                      className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
-                        account.status ? 'status-on' : 'status-off'
-                      }`}
-                      data-testid={`status-${account.id}`}
+                  </div>
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-10 rounded-2xl border-primary/40 text-sm text-primary hover:bg-primary/10"
+                      onClick={() => onCopyUsername(account.username)}
+                      data-testid={`button-copy-username-${account.id}`}
                     >
-                      <div className="w-2 h-2 rounded-full bg-current mr-1 mt-0.5"></div>
-                      {account.status ? 'ON' : 'OFF'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 sm:px-6 text-sm font-medium sm:whitespace-nowrap">
-                    {new Date(account.updatedAt).toLocaleString("sv-SE", {
-                      year: "numeric",
-                      month: "2-digit",
-                      day: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit"
-                    }).replace("T", " ")}
-                  </td>
-                  <td className="px-4 py-4 sm:px-6 text-sm font-medium sm:whitespace-nowrap">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="default"
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 h-7"
-                        onClick={() => onCopyUsername(account.username)}
-                        data-testid={`button-copy-username-${account.id}`}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="default"
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 h-7"
-                        onClick={() => onCopyPassword(account.password)}
-                        data-testid={`button-copy-password-${account.id}`}
-                      >
-                        <Key className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="default"
-                        className={`px-2 py-1 h-7 text-white ${
-                          account.status 
-                            ? 'bg-green-500 hover:bg-green-600' 
-                            : 'bg-yellow-500 hover:bg-yellow-600'
-                        }`}
-                        onClick={() => onToggleStatus(account)}
-                        data-testid={`button-toggle-status-${account.id}`}
-                      >
-                        {account.status ? <Check className="h-3 w-3" /> : <Power className="h-3 w-3" />}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="default"
-                        className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 h-7"
-                        onClick={() => onDeleteClick(account)}
-                        data-testid={`button-delete-${account.id}`}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copy user
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-10 rounded-2xl border-primary/40 text-sm text-primary hover:bg-primary/10"
+                      onClick={() => onCopyPassword(account.password)}
+                      data-testid={`button-copy-password-${account.id}`}
+                    >
+                      <Key className="mr-2 h-4 w-4" />
+                      Copy pass
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={`h-10 rounded-2xl text-sm ${
+                        account.status
+                          ? "border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10"
+                          : "border-amber-500/40 text-amber-600 hover:bg-amber-500/10"
+                      }`}
+                      onClick={() => onToggleStatus(account)}
+                      data-testid={`button-toggle-status-${account.id}`}
+                    >
+                      {account.status ? "Tắt tài khoản" : "Bật tài khoản"}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-10 rounded-2xl text-sm"
+                      onClick={() => onDeleteClick(account)}
+                      data-testid={`button-delete-${account.id}`}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Xóa tài khoản
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Pagination */}
-      <div className="border-t border-border bg-muted/30 px-4 py-4 sm:px-6">
+      <div className="border-t border-border/70 bg-muted/30 px-4 py-4 sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-center text-sm text-muted-foreground sm:text-left">
-            Hien thi <span className="font-medium">{displayStart}-{displayEnd}</span> cua <span className="font-medium">{totalCount}</span> tai khoan
+            Hiển thị <span className="font-semibold text-card-foreground">{displayStart}-{displayEnd}</span> trên tổng
+            <span className="font-semibold text-card-foreground"> {totalCount}</span> tài khoản
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Dong/trang</span>
+              <span>Dòng/trang</span>
               <Select value={String(pageSize)} onValueChange={(value) => onPageSizeChange(Number(value))}>
-                <SelectTrigger className="h-8 w-[100px] text-sm" data-testid="select-page-size">
+                <SelectTrigger className="h-9 w-[120px] rounded-2xl text-sm" data-testid="select-page-size">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {safePageSizeOptions.map((option) => (
                     <SelectItem key={option} value={String(option)}>
-                      {option} dong
+                      {option} dòng
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
-              <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={onPrevPage} disabled={!canPrev}>
-                Truoc
+            <div className="flex items-center justify-between gap-2 sm:justify-end">
+              <Button className="h-9 rounded-2xl px-3 text-sm" variant="outline" size="sm" onClick={onPrevPage} disabled={!canPrev}>
+                Trước
               </Button>
-              <span className="text-center text-sm text-muted-foreground sm:text-left">
-                Trang <span className="font-medium">{page}</span>
+              <span className="text-sm text-muted-foreground">
+                Trang <span className="font-semibold text-card-foreground">{page}</span>
               </span>
-              <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={onNextPage} disabled={!canNext}>
+              <Button className="h-9 rounded-2xl px-3 text-sm" variant="outline" size="sm" onClick={onNextPage} disabled={!canNext}>
                 Sau
               </Button>
             </div>
