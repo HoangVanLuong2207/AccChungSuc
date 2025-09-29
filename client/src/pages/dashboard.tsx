@@ -10,6 +10,7 @@ import AccountTable from "@/components/account-table";
 import ImportSection from "@/components/import-section";
 import DeleteModal from "@/components/delete-modal";
 import DeleteMultipleModal from "@/components/delete-multiple-modal";
+import ThemeToggle from '@/components/theme-toggle';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -443,37 +444,49 @@ export default function Dashboard() {
   }, [page, pageSize, totalCount]);
 
   return (
-    <div className="container mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
+    <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-4 py-6 sm:px-6 lg:gap-8 lg:py-10">
       {/* Page Header */}
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="mb-2 text-2xl font-bold text-foreground sm:text-3xl">Kho chung sức</h1>
-          <p className="text-muted-foreground">Quản lý và theo dõi tất cả các acc làm chung sức trong hệ thống</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center md:justify-end">
-          <Button className="w-full sm:w-auto" variant="secondary" onClick={() => navigate('/acclogs')}>
-           Về kho log
-          </Button>
-          <Button className="w-full sm:w-auto" variant="outline" onClick={logout}>
-            <LogOut className="mr-2 h-4 w-4" />
-           Đăng xuất  
-          </Button>
+      <div className="rounded-3xl border border-border bg-card/90 p-6 shadow-sm backdrop-blur-sm sm:p-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-wide text-primary">Kho chung sức</p>
+            <h1 className="mt-2 text-3xl font-semibold text-foreground sm:text-4xl lg:text-[40px]">
+              Clone Lv11-15 
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
+              Theo dõi trạng thái, import nhanh và thao tác hàng loạt với giao diện đa tầng tối ưu cho desktop, tablet và mobile.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <ThemeToggle className="self-end sm:self-auto" />
+            <Button className="w-full sm:w-auto" variant="secondary" onClick={() => navigate('/acclogs')}>
+              Về kho log
+            </Button>
+            <Button className="w-full sm:w-auto" variant="outline" onClick={logout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Đăng xuất
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-4">
+      <div className="grid gap-6 lg:grid-cols-[320px_1fr] xl:grid-cols-[360px_1fr]">
         {/* Import Section */}
-        <ImportSection
-          className="hidden lg:block"
-          onImport={handleImport}
-          isImporting={importAccountsMutation.isPending}
-          stats={stats}
-          onUpdateAll={(status: boolean) => updateAllStatusesMutation.mutate(status)}
-          isUpdatingAll={updateAllStatusesMutation.isPending}
-        />
+        <aside className="hidden lg:block">
+          <div className="lg:sticky lg:top-24 lg:h-fit">
+            <ImportSection
+              className="lg:block"
+              onImport={handleImport}
+              isImporting={importAccountsMutation.isPending}
+              stats={stats}
+              onUpdateAll={(status: boolean) => updateAllStatusesMutation.mutate(status)}
+              isUpdatingAll={updateAllStatusesMutation.isPending}
+            />
+          </div>
+        </aside>
 
         {/* Accounts Table */}
-        <div className="lg:col-span-3">
+        <main className="flex flex-col gap-6">
           <AccountTable
             accounts={limitedAccounts}
             isLoading={isLoading}
@@ -501,9 +514,8 @@ export default function Dashboard() {
             onNextPage={() => canNext && setPage((p) => p + 1)}
             onPageSizeChange={handlePageSizeChange}
           />
-        </div>
+        </main>
       </div>
-
       {/* Mobile Import Entry */}
       <div className="lg:hidden">
         <Sheet>
