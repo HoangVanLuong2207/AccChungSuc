@@ -7,6 +7,8 @@ interface IStorage {
   getAllAccounts(): Promise<Account[]>;
   createAccount(insertAccount: InsertAccount): Promise<Account>;
   updateAccountStatus(id: number, status: boolean): Promise<Account | undefined>;
+  updateAccountTag(id: number, tag: string | null): Promise<Account | undefined>;
+  updateMultipleAccountTags(tag: string | null, ids?: number[]): Promise<number>;
   deleteAccount(id: number): Promise<boolean>;
   deleteMultipleAccounts(ids: number[]): Promise<number>;
   deleteAllAccounts(): Promise<number>;
@@ -51,6 +53,7 @@ export class MemoryStorage implements IStorage {
       username: insertAccount.username,
       password: insertAccount.password,
       status: true,
+      tag: insertAccount.tag ?? null,
       updatedAt: new Date(),
     };
     this.accountsData.push(account);
@@ -65,6 +68,36 @@ export class MemoryStorage implements IStorage {
     account.status = status;
     account.updatedAt = new Date();
     return account;
+  }
+
+  async updateAccountTag(id: number, tag: string | null): Promise<Account | undefined> {
+    const account = this.accountsData.find((item) => item.id === id);
+    if (!account) {
+      return undefined;
+    }
+    account.tag = tag;
+    account.updatedAt = new Date();
+    return account;
+  }
+
+  async updateMultipleAccountTags(tag: string | null, ids?: number[]): Promise<number> {
+    if (ids && ids.length > 0) {
+      let updated = 0;
+      this.accountsData.forEach((account) => {
+        if (ids.includes(account.id)) {
+          account.tag = tag;
+          account.updatedAt = new Date();
+          updated += 1;
+        }
+      });
+      return updated;
+    }
+
+    this.accountsData.forEach((account) => {
+      account.tag = tag;
+      account.updatedAt = new Date();
+    });
+    return this.accountsData.length;
   }
 
   async deleteAccount(id: number): Promise<boolean> {
@@ -184,7 +217,7 @@ export class DatabaseStorage implements IStorage {
       return account;
     } catch (error) {
       console.error('Error in createAccount:', error);
-      throw new Error('Failed to create account in database');
+      throw new Error('Tài khoản đã tồn tại trong hệ thống');
     }
   }
 
@@ -199,6 +232,40 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error in updateAccountStatus:', error);
       throw new Error('Failed to update account status in database');
+    }
+  }
+
+  async updateAccountTag(id: number, tag: string | null): Promise<Account | undefined> {
+    try {
+      const [account] = await db
+        .update(accounts)
+        .set({ tag, updatedAt: new Date() })
+        .where(eq(accounts.id, id))
+        .returning();
+      return account || undefined;
+    } catch (error) {
+      console.error('Error in updateAccountTag:', error);
+      throw new Error('Failed to update account tag in database');
+    }
+  }
+
+  async updateMultipleAccountTags(tag: string | null, ids?: number[]): Promise<number> {
+    try {
+      if (ids && ids.length > 0) {
+        const result = await db
+          .update(accounts)
+          .set({ tag, updatedAt: new Date() })
+          .where(inArray(accounts.id, ids));
+        return result.rowCount ?? 0;
+      }
+
+      const result = await db
+        .update(accounts)
+        .set({ tag, updatedAt: new Date() });
+      return result.rowCount ?? 0;
+    } catch (error) {
+      console.error('Error in updateMultipleAccountTags:', error);
+      throw new Error('Failed to update account tags in database');
     }
   }
 
@@ -249,7 +316,15 @@ export class DatabaseStorage implements IStorage {
         })
         .from(accounts);
 
-      return stats || { total: 0, active: 0, inactive: 0 };
+      if (!stats) {
+        return { total: 0, active: 0, inactive: 0 };
+      }
+
+      return {
+        total: Number(stats.total) || 0,
+        active: Number(stats.active) || 0,
+        inactive: Number(stats.inactive) || 0,
+      };
     } catch (error) {
       console.error('Error in getAccountStats:', error);
       return { total: 0, active: 0, inactive: 0 };
@@ -353,7 +428,15 @@ export class DatabaseStorage implements IStorage {
         })
         .from(accLogs);
 
-      return stats || { total: 0, active: 0, inactive: 0 };
+      if (!stats) {
+        return { total: 0, active: 0, inactive: 0 };
+      }
+
+      return {
+        total: Number(stats.total) || 0,
+        active: Number(stats.active) || 0,
+        inactive: Number(stats.inactive) || 0,
+      };
     } catch (error) {
       console.error('Error in getAccLogStats:', error);
       return { total: 0, active: 0, inactive: 0 };

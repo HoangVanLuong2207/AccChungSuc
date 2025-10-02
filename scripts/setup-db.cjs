@@ -23,8 +23,29 @@ async function setup() {
         username TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
         status BOOLEAN NOT NULL DEFAULT true,
+        tag TEXT,
         updated_at TIMESTAMP NOT NULL DEFAULT now()
       );
+    `);
+
+    await client.query(`
+      ALTER TABLE accounts
+      ADD COLUMN IF NOT EXISTS tag TEXT;
+    `);
+
+    await client.query(`
+      ALTER TABLE accounts
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT now();
+    `);
+
+    await client.query(`
+      ALTER TABLE accounts
+      ALTER COLUMN updated_at SET DEFAULT now();
+    `);
+
+    await client.query(`
+      UPDATE accounts
+      SET updated_at = COALESCE(updated_at, now());
     `);
 
     await client.query(`
@@ -35,6 +56,16 @@ async function setup() {
         status BOOLEAN NOT NULL DEFAULT true,
         updated_at TIMESTAMP NOT NULL DEFAULT now()
       );
+    `);
+
+    await client.query(`
+      ALTER TABLE acclogs
+      ALTER COLUMN updated_at SET DEFAULT now();
+    `);
+
+    await client.query(`
+      UPDATE acclogs
+      SET updated_at = COALESCE(updated_at, now());
     `);
 
     await client.query(`
