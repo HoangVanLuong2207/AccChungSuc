@@ -1,4 +1,4 @@
-import { Copy, Key, Check, Power, Trash2, Search, Users, Download } from "lucide-react";
+﻿import { Copy, Key, Check, Power, Trash2, Search, Users, Download, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -37,6 +37,8 @@ interface AccountTableProps {
   onPageSizeChange: (pageSize: number) => void;
   title?: string;
   emptyMessage?: string;
+  showTagColumn?: boolean;
+  onEditTag?: (account: AccountLike) => void;
 }
 
 const formatUpdatedAt = (value: AccountLike["updatedAt"]) =>
@@ -76,7 +78,9 @@ export default function AccountTable({
   onNextPage,
   onPageSizeChange,
   title = "Danh sách tài khoản",
-  emptyMessage = "Không có tài khoản nào được tìm thấy",
+  emptyMessage = "Không có tài khoản nào được tìm thấy.",
+  showTagColumn = false,
+  onEditTag,
 }: AccountTableProps) {
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -102,6 +106,8 @@ export default function AccountTable({
   const isAllSelected = accounts.length > 0 && selectedAccounts.length === accounts.length;
   const selectedCount = selectedAccounts.length;
   const hasSelection = selectedCount > 0;
+  const canEditTag = showTagColumn && typeof onEditTag === "function";
+  const columnCount = 7 + (showTagColumn ? 1 : 0);
 
   if (isLoading) {
     return (
@@ -121,15 +127,15 @@ export default function AccountTable({
   return (
     <div className="rounded-3xl border border-border/70 bg-card shadow-sm">
       <div className="flex flex-col gap-4 border-b border-border/70 px-4 py-5 sm:px-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-center gap-3 text-card-foreground">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-center gap-1 text-card-foreground">
+            <span className="flex h-10 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <Users className="h-5 w-5" />
             </span>
             <div>
               <h2 className="text-lg font-semibold sm:text-xl">{title}</h2>
               <p className="text-sm text-muted-foreground">
-                {totalCount} mục · {selectedCount} đang chọn
+               Chọn {selectedCount}/{totalCount} 
               </p>
             </div>
           </div>
@@ -138,7 +144,7 @@ export default function AccountTable({
               <div className="relative w-full sm:w-[240px]">
                 <Input
                   type="text"
-                  placeholder="Tìm kiếm tài khoản..."
+                  placeholder="`Tìm kiếm tài khoản..."
                   value={searchTerm}
                   onChange={(event) => onSearchChange(event.target.value)}
                   className="h-10 w-full rounded-2xl border-border/70 pl-10 pr-3 text-sm"
@@ -153,72 +159,38 @@ export default function AccountTable({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả</SelectItem>
-                  <SelectItem value="on">Đang hoạt động</SelectItem>
-                  <SelectItem value="off">Tạm dừng</SelectItem>
+                  <SelectItem value="on">Äang hoáº¡t Ä‘á»™ng</SelectItem>
+                  <SelectItem value="off">Táº¡m dá»«ng</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 md:justify-end">
-              <Button
-                className="h-10 rounded-2xl border-border/60 px-3 text-sm"
-                variant="outline"
-                size="sm"
-                onClick={onExportAll}
-                disabled={totalCount === 0}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Xuất tất cả
-              </Button>
-              <Button
-                className="h-10 rounded-2xl border-border/60 px-3 text-sm"
-                variant="outline"
-                size="sm"
-                onClick={onExportSelected}
-                disabled={!hasSelection}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Xuất JS
-              </Button>
-              <Button
-                className="h-10 rounded-2xl px-3 text-sm"
-                variant="destructive"
-                size="sm"
-                onClick={onDeleteSelected}
-                disabled={!hasSelection}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Xóa ({selectedCount})
-              </Button>
-              <Button className="h-10 rounded-2xl px-3 text-sm" variant="destructive" size="sm" onClick={onDeleteAll}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Xóa tất cả
-              </Button>
-            </div>
+            
           </div>
         </div>
       </div>
 
       <div className="hidden lg:block">
         <div className="overflow-hidden">
-          <table className="w-full min-w-[880px] table-fixed">
+          <table className="w-full min-w-[960px] table-auto">
             <thead className="bg-muted/60">
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <th className="w-[48px] px-4 py-3">
-                  <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} aria-label="Chọn tất cả" />
+                  <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} aria-label="Chá»n Tất cả" />
                 </th>
                 <th className="w-[72px] px-4 py-3">ID</th>
-                <th className="px-4 py-3">Tài khoản</th>
-                <th className="px-4 py-3">Mật khẩu</th>
-                <th className="w-[160px] px-4 py-3">Trạng thái</th>
-                <th className="w-[180px] px-4 py-3">Cập nhật</th>
-                <th className="w-[220px] px-4 py-3">Thao tác</th>
+                <th className="px-4 py-3 min-w-[220px]">Tài khoản</th>
+                <th className="px-4 py-3 min-w-[200px]">Mật khẩu</th>
+                {showTagColumn ? <th className="px-4 py-3 min-w-[160px]">Tag</th> : null}
+                <th className="w-[140px] px-4 py-3">Trạng thái</th>
+                <th className="w-[180px] px-4 py-3 whitespace-nowrap">Cập nhật</th>
+                <th className="px-4 py-3 min-w-[240px]">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {accounts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={columnCount} className="px-6 py-10 text-center text-sm text-muted-foreground">
                     {emptyMessage}
                   </td>
                 </tr>
@@ -227,6 +199,10 @@ export default function AccountTable({
                   const statusClasses = account.status
                     ? "bg-emerald-500/15 text-emerald-600"
                     : "bg-rose-500/15 text-rose-600";
+                  const tagValue =
+                    showTagColumn && "tag" in account ? ((account as Account).tag ?? null) : null;
+                  const hasTag = !!(tagValue && tagValue.length > 0);
+                  const tagLabel = hasTag ? tagValue : "Chua gan";
 
                   return (
                     <tr key={account.id} className="transition-colors hover:bg-muted/40" data-testid={`row-account-${account.id}`}>
@@ -234,7 +210,7 @@ export default function AccountTable({
                         <Checkbox
                           checked={selectedAccounts.includes(account.id)}
                           onCheckedChange={(checked) => handleSelectRow(account.id, !!checked)}
-                          aria-label={`Chọn dòng ${account.id}`}
+                          aria-label={`Chá»n dòng ${account.id}`}
                         />
                       </td>
                       <td className="px-4 py-4 text-sm font-semibold text-card-foreground">#{account.id.toString().padStart(3, "0")}</td>
@@ -245,9 +221,31 @@ export default function AccountTable({
                       </td>
                       <td className="px-4 py-4">
                         <span className="inline-flex items-center gap-2 rounded-2xl bg-muted px-3 py-2 font-mono text-sm text-muted-foreground">
-                          ••••••••
+                          ●●●●●●●●●●
                         </span>
                       </td>
+                      {showTagColumn ? (
+                        <td className="px-4 py-4">
+                          {canEditTag ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="inline-flex h-10 items-center gap-2 rounded-full border-dashed border-border/60 px-3 text-xs"
+                              onClick={() => onEditTag?.(account)}
+                            >
+                              <Settings2 className="h-3.5 w-3.5" />
+                              <span className="flex flex-col text-left leading-tight">
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Chỉnh sửa tag</span>
+                                <span className="text-xs font-semibold text-card-foreground">{tagLabel}</span>
+                              </span>
+                            </Button>
+                          ) : (
+                            <Badge className="inline-flex h-8 items-center gap-2 rounded-full border-0 px-3 text-xs font-semibold text-muted-foreground">
+                              {tagLabel}
+                            </Badge>
+                          )}
+                        </td>
+                      ) : null}
                       <td className="px-4 py-4">
                         <Badge
                           data-testid={`status-${account.id}`}
@@ -322,6 +320,10 @@ export default function AccountTable({
               const statusClasses = account.status
                 ? "bg-emerald-500/15 text-emerald-600"
                 : "bg-rose-500/15 text-rose-600";
+              const mobileTagValue =
+                showTagColumn && "tag" in account ? ((account as Account).tag ?? null) : null;
+              const mobileHasTag = !!(mobileTagValue && mobileTagValue.length > 0);
+              const mobileTagLabel = mobileHasTag ? mobileTagValue : "Chua gan";
 
               return (
                 <div key={account.id} className="rounded-3xl border border-border/70 bg-card p-4 shadow-sm">
@@ -336,11 +338,31 @@ export default function AccountTable({
                         <span className="h-2 w-2 rounded-full bg-current" />
                         {account.status ? "ON" : "OFF"}
                       </Badge>
+                      {showTagColumn ? (
+                        canEditTag ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 inline-flex h-10 items-center gap-2 rounded-full border-dashed border-border/60 px-3 text-xs"
+                            onClick={() => onEditTag?.(account)}
+                          >
+                            <Settings2 className="h-3.5 w-3.5" />
+                            <span className="flex flex-col text-left leading-tight">
+                              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Chỉnh sửa tag</span>
+                              <span className="text-xs font-semibold text-card-foreground">{mobileTagLabel}</span>
+                            </span>
+                          </Button>
+                        ) : (
+                          <Badge className="mt-2 inline-flex items-center gap-2 rounded-full border-0 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                            {mobileTagLabel}
+                          </Badge>
+                        )
+                      ) : null}
                     </div>
                     <Checkbox
                       checked={selectedAccounts.includes(account.id)}
                       onCheckedChange={(checked) => handleSelectRow(account.id, !!checked)}
-                      aria-label={`Chọn tài khoản ${account.username}`}
+                      aria-label={`Chá»n tài khoản ${account.username}`}
                     />
                   </div>
 
@@ -376,7 +398,7 @@ export default function AccountTable({
                       onClick={() => onToggleStatus(account)}
                       data-testid={`button-toggle-status-${account.id}`}
                     >
-                      {account.status ? "Tắt tài khoản" : "Bật tài khoản"}
+                      {account.status ? "Táº¯t tài khoản" : "Báº­t tài khoản"}
                     </Button>
                     <Button
                       variant="destructive"
@@ -386,7 +408,7 @@ export default function AccountTable({
                       data-testid={`button-delete-${account.id}`}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
-                      Xóa tài khoản
+                      XĂ³a tài khoản
                     </Button>
                   </div>
                 </div>
@@ -404,7 +426,7 @@ export default function AccountTable({
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Dòng/trang</span>
+              <span>Tài khoản/trang</span>
               <Select value={String(pageSize)} onValueChange={(value) => onPageSizeChange(Number(value))}>
                 <SelectTrigger className="h-9 w-[120px] rounded-2xl text-sm" data-testid="select-page-size">
                   <SelectValue />
@@ -435,3 +457,4 @@ export default function AccountTable({
     </div>
   );
 }
+

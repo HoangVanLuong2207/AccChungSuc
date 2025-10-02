@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertAccountSchema, updateAccountSchema, insertUserSchema, insertAccLogSchema, updateAccLogSchema } from "@shared/schema";
+import { insertAccountSchema, updateAccountSchema, updateAccountTagSchema, insertUserSchema, insertAccLogSchema, updateAccLogSchema } from "@shared/schema";
 import { isAuthenticated } from "./auth";
 import bcrypt from "bcrypt";
 import multer from "multer";
@@ -168,6 +168,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
+  // Update account tag
+  app.patch("/api/accounts/:id/tag", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { tag } = updateAccountTagSchema.parse(req.body);
+      const normalizedTag = typeof tag === 'string' && tag.length > 0 ? tag : null;
+      const account = await storage.updateAccountTag(id, normalizedTag);
+
+      if (!account) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+
+      res.json(account);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update account tag" });
+      }
+    }
+  });
+
+  // Update account tags in bulk
+  app.patch("/api/accounts/tag", isAuthenticated, async (req, res) => {
+    try {
+      const { ids, tag } = z.object({
+        ids: z.array(z.number().int().positive()).min(1).optional(),
+        tag: updateAccountTagSchema.shape.tag,
+      }).parse(req.body);
+
+      const normalizedTag = typeof tag === 'string' && tag.length > 0 ? tag : null;
+      const updatedCount = await storage.updateMultipleAccountTags(normalizedTag, ids);
+
+      res.json({ updated: updatedCount, tag: normalizedTag });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update account tags" });
+      }
+    }
+  });
+
+
 
   // Delete account
   app.delete("/api/accounts/:id", isAuthenticated, async (req, res) => {
@@ -249,6 +293,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to import accounts" });
+    }
+  });
+
+
+  // Import accounts from normalized payload
+  app.post("/api/accounts/import-batch", isAuthenticated, async (req, res) => {
+    try {
+      const { records, sourceName } = z.object({
+        records: z.array(insertAccountSchema),
+        sourceName: z.string().min(1).max(160).optional(),
+      }).parse(req.body);
+
+      if (records.length === 0) {
+        return res.status(400).json({ message: "Khong co ban ghi de import" });
+      }
+
+      if (records.length > 1000) {
+        return res.status(400).json({ message: "Qua nhieu tài khoản. Gioi han 1000 tài khoản moi lan import" });
+      }
+
+      const { createdRecords, errors } = await processImportRecords(
+        records,
+        (record) => insertAccountSchema.parse(record),
+        (data) => storage.createAccount(data)
+      );
+
+      res.json({
+        imported: createdRecords.length,
+        errors: errors.length,
+        accounts: createdRecords,
+        errorDetails: errors,
+        sourceName: sourceName ?? null,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Du lieu khong hop le", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to import accounts" });
+      }
     }
   });
 
@@ -401,6 +484,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to import accLogs" });
+    }
+  });
+
+
+  // Import accLogs from normalized payload
+  app.post("/api/acclogs/import-batch", isAuthenticated, async (req, res) => {
+    try {
+      const { records, sourceName } = z.object({
+        records: z.array(insertAccLogSchema),
+        sourceName: z.string().min(1).max(160).optional(),
+      }).parse(req.body);
+
+      if (records.length === 0) {
+        return res.status(400).json({ message: "Khong co ban ghi de import" });
+      }
+
+      if (records.length > 1000) {
+        return res.status(400).json({ message: "Qua nhieu ban ghi. Gioi han 1000 moi lan import" });
+      }
+
+      const { createdRecords, errors } = await processImportRecords(
+        records,
+        (record) => insertAccLogSchema.parse(record),
+        (data) => storage.createAccLog(data)
+      );
+
+      res.json({
+        imported: createdRecords.length,
+        errors: errors.length,
+        accLogs: createdRecords,
+        errorDetails: errors,
+        sourceName: sourceName ?? null,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Du lieu khong hop le", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to import accLogs" });
+      }
     }
   });
 

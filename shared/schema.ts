@@ -8,20 +8,27 @@ export const accounts = pgTable("accounts", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   status: boolean("status").notNull().default(true),
+  tag: text("tag"),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
 export const insertAccountSchema = createInsertSchema(accounts).pick({
   username: true,
   password: true,
+  tag: true,
 });
 
 export const updateAccountSchema = createInsertSchema(accounts).pick({
   status: true,
 });
 
+export const updateAccountTagSchema = z.object({
+  tag: z.union([z.string().trim().max(64), z.null()]),
+});
+
 export type InsertAccount = z.infer<typeof insertAccountSchema>;
 export type UpdateAccount = z.infer<typeof updateAccountSchema>;
+export type UpdateAccountTag = z.infer<typeof updateAccountTagSchema>;
 export type Account = typeof accounts.$inferSelect;
 
 export const accLogs = pgTable("acclogs", {
