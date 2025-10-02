@@ -60,7 +60,7 @@ import {
 } from "@/components/ui/chart";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, XAxis, YAxis } from "recharts";
 
-const MAX_PREVIEW_ROWS = 12;
+const PREVIEW_PAGE_SIZE = 10;
 
 type EntityKey = "accounts" | "logs";
 type DateFilterKey = "all" | "today" | "7d" | "30d";
@@ -1045,6 +1045,7 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<ColumnMapping>({ username: "", password: "" });
   const [validation, setValidation] = useState<NormalizationResult | null>(null);
+  const [previewPage, setPreviewPage] = useState(1);
   const [sourceName, setSourceName] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
   const [loadingSource, setLoadingSource] = useState(false);
@@ -1075,6 +1076,10 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
     setValidation(normalizeRows(rawRows, mapping));
   }, [rawRows, mapping]);
 
+  useEffect(() => {
+    setPreviewPage(1);
+  }, [validation?.rows.length]);
+
   const handleReset = () => {
     setStep(1);
     setRawRows([]);
@@ -1083,6 +1088,7 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
     setValidation(null);
     setSourceName("");
     setSheetUrl("");
+    setPreviewPage(1);
     setError(null);
   };
 
@@ -1146,6 +1152,7 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
   const handleContinue = () => {
     if (step === 2 && validation) {
       setStep(3);
+      setPreviewPage(1);
     }
   };
 
@@ -1160,7 +1167,13 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
     handleReset();
   };
 
-  const previewRows = validation?.rows.slice(0, MAX_PREVIEW_ROWS) ?? [];
+  const previewTotalCount = validation?.rows.length ?? 0;
+  const previewTotalPages = Math.max(1, Math.ceil(previewTotalCount / PREVIEW_PAGE_SIZE));
+  const currentPreviewPage = Math.min(previewPage, previewTotalPages);
+  const previewStartIndex = (currentPreviewPage - 1) * PREVIEW_PAGE_SIZE;
+  const previewRows = validation?.rows.slice(previewStartIndex, previewStartIndex + PREVIEW_PAGE_SIZE) ?? [];
+  const previewDisplayStart = previewTotalCount === 0 ? 0 : previewStartIndex + 1;
+  const previewDisplayEnd = previewTotalCount === 0 ? 0 : Math.min(previewStartIndex + previewRows.length, previewTotalCount);
   const readyCount = validation?.ready.length ?? 0;
   const skippedCount = validation?.blockingIssueCount ?? 0;
 
@@ -1331,9 +1344,49 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
                 </tbody>
               </table>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Chỉ hiện {previewRows.length} dòng đầu. Các dòng lỗi sẽ được bỏ qua khi nhập.
-            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground">
+                {previewTotalCount > 0 ? (
+                  <>
+                    Hiển thị{" "}
+                    <span className="font-semibold text-card-foreground">
+                      {previewDisplayStart}-{previewDisplayEnd}
+                    </span>{" "}
+                    trên tổng{" "}
+                    <span className="font-semibold text-card-foreground">{previewTotalCount}</span>{" "}
+                    dòng đã kiểm tra. Các dòng lỗi sẽ được bỏ qua khi nhập.
+                  </>
+                ) : (
+                  <>Không có dữ liệu xem trước. Các dòng lỗi sẽ được bỏ qua khi nhập.</>
+                )}
+              </p>
+              {previewTotalPages > 1 ? (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-full px-3 text-xs"
+                    onClick={() => setPreviewPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPreviewPage <= 1}
+                  >
+                    Trước
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Trang{" "}
+                    <span className="font-semibold text-card-foreground">{currentPreviewPage}</span>/<span className="font-semibold text-card-foreground">{previewTotalPages}</span>
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-full px-3 text-xs"
+                    onClick={() => setPreviewPage((prev) => Math.min(previewTotalPages, prev + 1))}
+                    disabled={currentPreviewPage >= previewTotalPages}
+                  >
+                    Sau
+                  </Button>
+                </div>
+              ) : null}
+            </div>
 
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" size="sm" onClick={handleBack}>
