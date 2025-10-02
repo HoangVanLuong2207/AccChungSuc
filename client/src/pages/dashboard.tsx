@@ -2150,11 +2150,13 @@ export default function Dashboard() {
               <DialogDescription>Chuẩn hoá dữ liệu trước khi đưa vào hệ thống.</DialogDescription>
             </DialogHeader>
             {canShowImportAssistant ? (
-              <ImportPipelineAssistant
-                entity={activeTab}
-                onImport={(payload) => handleImportRecords(activeTab, payload)}
-                isImporting={activeTab === "accounts" ? accountImportMutation.isPending : logImportMutation.isPending}
-              />
+              <div className="max-h-[70vh] overflow-y-auto pr-1 sm:pr-2">
+                <ImportPipelineAssistant
+                  entity={activeTab}
+                  onImport={(payload) => handleImportRecords(activeTab, payload)}
+                  isImporting={activeTab === "accounts" ? accountImportMutation.isPending : logImportMutation.isPending}
+                />
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">
                 Trợ lý import đang bị tắt. Bật lại trong phần tùy chỉnh widget.
@@ -2239,6 +2241,7 @@ export default function Dashboard() {
     </div>
   );
 }
+
 
 
 
