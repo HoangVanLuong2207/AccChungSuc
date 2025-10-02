@@ -202,7 +202,7 @@ export default function AccountTable({
                   const tagValue =
                     showTagColumn && "tag" in account ? ((account as Account).tag ?? null) : null;
                   const hasTag = !!(tagValue && tagValue.length > 0);
-                  const tagLabel = hasTag ? tagValue : "Chua gan";
+                  const tagLabel = hasTag ? tagValue : "Chưa gắn";
 
                   return (
                     <tr key={account.id} className="transition-colors hover:bg-muted/40" data-testid={`row-account-${account.id}`}>
@@ -323,7 +323,7 @@ export default function AccountTable({
               const mobileTagValue =
                 showTagColumn && "tag" in account ? ((account as Account).tag ?? null) : null;
               const mobileHasTag = !!(mobileTagValue && mobileTagValue.length > 0);
-              const mobileTagLabel = mobileHasTag ? mobileTagValue : "Chua gan";
+              const mobileTagLabel = mobileHasTag ? mobileTagValue : "Chưa gắn";
 
               return (
                 <div key={account.id} className="rounded-3xl border border-border/70 bg-card p-4 shadow-sm">
@@ -398,7 +398,7 @@ export default function AccountTable({
                       onClick={() => onToggleStatus(account)}
                       data-testid={`button-toggle-status-${account.id}`}
                     >
-                      {account.status ? "Táº¯t tài khoản" : "Báº­t tài khoản"}
+                      {account.status ? "OFF tài khoản" : "OFF tài khoản"}
                     </Button>
                     <Button
                       variant="destructive"
@@ -408,7 +408,7 @@ export default function AccountTable({
                       data-testid={`button-delete-${account.id}`}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
-                      XĂ³a tài khoản
+                      Xóa tài khoản
                     </Button>
                   </div>
                 </div>
