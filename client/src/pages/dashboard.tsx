@@ -94,6 +94,7 @@ interface EntityConfig {
   statsKey: string;
   statusAllPath: string;
   statusPath: (id: number) => string;
+  statusSelectedPath: string;
   deletePath: (id: number) => string;
   bulkDeletePath: string;
   importPath: string;
@@ -109,6 +110,7 @@ const ENTITY_CONFIG: Record<EntityKey, EntityConfig> = {
     statsKey: "/api/accounts/stats",
     statusAllPath: "/api/accounts/status-all",
     statusPath: (id) => `/api/accounts/${id}/status`,
+    statusSelectedPath: "/api/accounts/status",
     deletePath: (id) => `/api/accounts/${id}`,
     bulkDeletePath: "/api/accounts",
     importPath: "/api/accounts/import-batch",
@@ -122,6 +124,7 @@ const ENTITY_CONFIG: Record<EntityKey, EntityConfig> = {
     statsKey: "/api/acclogs/stats",
     statusAllPath: "/api/acclogs/status-all",
     statusPath: (id) => `/api/acclogs/${id}/status`,
+    statusSelectedPath: "/api/acclogs/status",
     deletePath: (id) => `/api/acclogs/${id}`,
     bulkDeletePath: "/api/acclogs",
     importPath: "/api/acclogs/import-batch",
@@ -515,7 +518,7 @@ function copyToClipboard(value: string, label: string, toast: ReturnType<typeof 
     .then(() => {
       toast({
         title: "Da sao chep",
-        description: `${label} da duoc luu vao clipboard`,
+        description: `${label} đã được lưu vào clipboard`,
       });
     })
     .catch(() => {
@@ -585,8 +588,28 @@ function useEntityMutations(
       toast({
         title: "Đã cập nhật",
         description: status
-          ? `Tất cả ${config.label.toLowerCase()} da duoc bat`
+          ? `Tất cả ${config.label.toLowerCase()} đã được bật`
           : `Tất cả ${config.label.toLowerCase()} đã được tắt`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Khong the cap nhat",
+        description: `Thu lai sau khi cap nhat ${config.label.toLowerCase()}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateSelectedMutation = useMutation({
+    mutationFn: async ({ ids, status }: { ids: number[]; status: boolean }) => {
+      await apiRequest("PATCH", config.statusSelectedPath, { ids, status });
+    },
+    onSuccess: (_data, variables) => {
+      invalidate();
+      toast({
+        title: "Da cap nhat",
+        description: `${variables.ids.length} ${config.label.toLowerCase()} đã được ${variables.status ? 'bat' : 'tat'}`,
       });
     },
     onError: () => {
@@ -605,8 +628,8 @@ function useEntityMutations(
     onSuccess: () => {
       invalidate();
       toast({
-        title: "Da thay doi trang thai",
-        description: `${config.label} da duoc cap nhat`,
+        title: "Đã thay đổi trạng thái",
+        description: `${config.label} đã được cập nhật`,
       });
     },
     onError: () => {
@@ -626,7 +649,7 @@ function useEntityMutations(
       invalidate();
       toast({
         title: "Da xoa",
-        description: `${config.label} da duoc xoa`,
+        description: `${config.label} đã được xóa`,
       });
     },
     onError: () => {
@@ -663,6 +686,7 @@ function useEntityMutations(
 
   return {
     updateAllMutation,
+    updateSelectedMutation,
     toggleStatusMutation,
     deleteMutation,
     deleteMultipleMutation,
@@ -952,13 +976,16 @@ interface BulkActionsCardProps {
   selectionCount: number;
   totalCount: number;
   onUpdateAll: (status: boolean) => void;
+  onUpdateSelected?: (status: boolean) => void;
   isUpdating: boolean;
+  isUpdatingSelected?: boolean;
   onDeleteSelected: () => void;
   onDeleteAll: () => void;
   onExportAll: () => void;
   onExportSelected: () => void;
   onAssignTag?: () => void;
   disableAssignTag?: boolean;
+  disableUpdateSelected?: boolean;
   disableDeleteSelected: boolean;
 }
 
@@ -967,13 +994,16 @@ function BulkActionsCard({
   selectionCount,
   totalCount,
   onUpdateAll,
+  onUpdateSelected,
   isUpdating,
+  isUpdatingSelected,
   onDeleteSelected,
   onDeleteAll,
   onExportAll,
   onExportSelected,
   onAssignTag,
   disableAssignTag,
+  disableUpdateSelected,
   disableDeleteSelected,
 }: BulkActionsCardProps) {
   return (
@@ -995,6 +1025,27 @@ function BulkActionsCard({
             Tắt tất cả
           </Button>
         </div>
+        {onUpdateSelected ? (
+          <div className="flex gap-2">
+            <Button
+              className="flex-1"
+              size="sm"
+              variant="outline"
+              onClick={() => onUpdateSelected(true)}
+              disabled={disableUpdateSelected || isUpdatingSelected}
+            >
+              Bật mục đã chọn            </Button>
+            <Button
+              className="flex-1"
+              size="sm"
+              variant="outline"
+              onClick={() => onUpdateSelected(false)}
+              disabled={disableUpdateSelected || isUpdatingSelected}
+            >
+              Tắt mục đã chọn
+            </Button>
+          </div>
+        ) : null}
         {onAssignTag ? (
           <Button size="sm" variant="outline" className="w-full" onClick={onAssignTag} disabled={disableAssignTag}>
             Gắn tag
@@ -1601,7 +1652,7 @@ export default function Dashboard() {
     ? (accountTagFilter === "all"
       ? null
       : accountTagFilter === TAG_FILTER_UNASSIGNED
-        ? "Chưa gán team"
+        ? "Chưa gán Tag"
         : `Team ${accountTagFilter}`)
     : null;
   const isFilterDefault = dateFilter === "all" && accountTagFilter === "all";
@@ -1789,6 +1840,22 @@ export default function Dashboard() {
     mutation.mutate(status);
   };
 
+  const handleUpdateSelected = (entity: EntityKey, status: boolean) => {
+    const selectedIds = entityUi[entity].selectedIds;
+    if (selectedIds.length === 0) {
+      toast({
+        title: "Chua co muc nao",
+        description: "Vui long chon it nhat mot muc de cap nhat",
+        variant: "destructive",
+      });
+      return;
+    }
+    const mutation = entity === "accounts"
+      ? accountMutations.updateSelectedMutation
+      : logMutations.updateSelectedMutation;
+    mutation.mutate({ ids: selectedIds, status });
+  };
+
   const handleOpenTagModalForAccount = (account: Account) => {
     setTagModalState({
       mode: "single",
@@ -1838,7 +1905,7 @@ export default function Dashboard() {
         description: `Da them ${response.imported} ${ENTITY_CONFIG[entity].label.toLowerCase()}`,
       });
     } catch (error) {
-      // error da duoc xu ly trong mutation onError
+      // error đã được xu ly trong mutation onError
     }
   };
 
@@ -1871,7 +1938,7 @@ export default function Dashboard() {
 
       setTagModalState(null);
     } catch (error) {
-      // lỗi da duoc xu ly trong mutation
+      // lỗi đã được xu ly trong mutation
     }
   };
 
@@ -1894,7 +1961,7 @@ export default function Dashboard() {
 
   const isTagUpdating = updateAccountTagMutation.isPending || bulkUpdateAccountTagMutation.isPending;
 
-  const pageSizeOptions = [10, 20, 50, 100];
+  const pageSizeOptions = [10, 20, 50, 100, 500, 1000];
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -2041,6 +2108,9 @@ export default function Dashboard() {
                   selectionCount={entityUi.accounts.selectedIds.length}
                   totalCount={accounts.length}
                   onUpdateAll={(status) => handleUpdateAll("accounts", status)}
+                  onUpdateSelected={(status) => handleUpdateSelected("accounts", status)}
+                  isUpdatingSelected={accountMutations.updateSelectedMutation.isPending}
+                  disableUpdateSelected={entityUi.accounts.selectedIds.length === 0}
                   isUpdating={accountMutations.updateAllMutation.isPending}
                   onDeleteSelected={() => handleDeleteSelected("accounts")}
                   onDeleteAll={() => handleDeleteAll("accounts")}
@@ -2092,6 +2162,9 @@ export default function Dashboard() {
                   selectionCount={entityUi.logs.selectedIds.length}
                   totalCount={logs.length}
                   onUpdateAll={(status) => handleUpdateAll("logs", status)}
+                  onUpdateSelected={(status) => handleUpdateSelected("logs", status)}
+                  isUpdatingSelected={logMutations.updateSelectedMutation.isPending}
+                  disableUpdateSelected={entityUi.logs.selectedIds.length === 0}
                   isUpdating={logMutations.updateAllMutation.isPending}
                   onDeleteSelected={() => handleDeleteSelected("logs")}
                   onDeleteAll={() => handleDeleteAll("logs")}
@@ -2129,14 +2202,14 @@ export default function Dashboard() {
               </div>
               {activeTab === "accounts" ? (
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Team</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tag</Label>
                   <Select value={accountTagFilter} onValueChange={(value) => handleTagFilterChange(value as TagFilterValue)}>
                     <SelectTrigger className="h-10 w-full rounded-full border-border/70 text-sm">
-                      <SelectValue placeholder="Chọn team" />
+                      <SelectValue placeholder="Chọn Tag" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tất cả team</SelectItem>
-                      {hasUnassignedTag ? (<SelectItem value={TAG_FILTER_UNASSIGNED}>Chưa gán team</SelectItem>) : null}
+                      <SelectItem value="all">Tất cả Tag</SelectItem>
+                      {hasUnassignedTag ? (<SelectItem value={TAG_FILTER_UNASSIGNED}>Chưa gán Tag</SelectItem>) : null}
                       {tagOptions.map((option) => (
                         <SelectItem key={option} value={option}>
                           {option}

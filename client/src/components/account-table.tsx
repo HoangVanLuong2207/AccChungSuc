@@ -71,7 +71,7 @@ export default function AccountTable({
   totalCount,
   page,
   pageSize,
-  pageSizeOptions = [10, 20, 50, 100],
+  pageSizeOptions = [10, 20, 50, 100, 500, 1000],
   canPrev,
   canNext,
   onPrevPage,
@@ -82,11 +82,15 @@ export default function AccountTable({
   showTagColumn = false,
   onEditTag,
 }: AccountTableProps) {
+  const currentPageIds = accounts.map((acc) => acc.id);
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      onSelectedAccountsChange(accounts.map((acc) => acc.id));
+      const uniqueSelection = Array.from(new Set([...selectedAccounts, ...currentPageIds]));
+      onSelectedAccountsChange(uniqueSelection);
     } else {
-      onSelectedAccountsChange([]);
+      const currentPageIdSet = new Set(currentPageIds);
+      onSelectedAccountsChange(selectedAccounts.filter((id) => !currentPageIdSet.has(id)));
     }
   };
 
@@ -103,7 +107,7 @@ export default function AccountTable({
   const displayEnd = totalCount === 0 ? 0 : Math.min(baseIndex + accounts.length, totalCount);
   const safePageSizeOptions = Array.from(new Set([...pageSizeOptions, pageSize])).sort((a, b) => a - b);
 
-  const isAllSelected = accounts.length > 0 && selectedAccounts.length === accounts.length;
+  const isAllSelected = accounts.length > 0 && currentPageIds.every((id) => selectedAccounts.includes(id));
   const selectedCount = selectedAccounts.length;
   const hasSelection = selectedCount > 0;
   const canEditTag = showTagColumn && typeof onEditTag === "function";
@@ -159,8 +163,8 @@ export default function AccountTable({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả</SelectItem>
-                  <SelectItem value="on">Äang hoáº¡t Ä‘á»™ng</SelectItem>
-                  <SelectItem value="off">Táº¡m dá»«ng</SelectItem>
+                  <SelectItem value="on">Đang hoạt động</SelectItem>
+                  <SelectItem value="off">Tạm dừng</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -176,11 +180,11 @@ export default function AccountTable({
             <thead className="bg-muted/60">
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <th className="w-[48px] px-4 py-3">
-                  <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} aria-label="Chá»n Tất cả" />
+                  <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} aria-label="Chọn tất cả" />
                 </th>
                 <th className="w-[72px] px-4 py-3">ID</th>
-                <th className="px-4 py-3 min-w-[220px]">Tài khoản</th>
-                <th className="px-4 py-3 min-w-[200px]">Mật khẩu</th>
+                <th className="px-4 py-3 min-w-[110px]">Tài khoản</th>
+                <th className="px-4 py-3 min-w-[110px]">Mật khẩu</th>
                 {showTagColumn ? <th className="px-4 py-3 min-w-[160px]">Tag</th> : null}
                 <th className="w-[140px] px-4 py-3">Trạng thái</th>
                 <th className="w-[180px] px-4 py-3 whitespace-nowrap">Cập nhật</th>
@@ -210,7 +214,7 @@ export default function AccountTable({
                         <Checkbox
                           checked={selectedAccounts.includes(account.id)}
                           onCheckedChange={(checked) => handleSelectRow(account.id, !!checked)}
-                          aria-label={`Chá»n dòng ${account.id}`}
+                          aria-label={`Chọn dòng ${account.id}`}
                         />
                       </td>
                       <td className="px-4 py-4 text-sm font-semibold text-card-foreground">#{account.id.toString().padStart(3, "0")}</td>
