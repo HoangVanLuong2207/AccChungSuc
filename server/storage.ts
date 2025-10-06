@@ -14,6 +14,7 @@ interface IStorage {
   deleteAllAccounts(): Promise<number>;
   getAccountStats(): Promise<{ total: number; active: number; inactive: number }>;
   updateAllAccountStatuses(status: boolean): Promise<number>;
+  updateSelectedAccountStatuses(ids: number[], status: boolean): Promise<number>;
 
   getAllAccLogs(): Promise<AccLog[]>;
   createAccLog(insertAccLog: InsertAccLog): Promise<AccLog>;
@@ -23,6 +24,7 @@ interface IStorage {
   deleteAllAccLogs(): Promise<number>;
   getAccLogStats(): Promise<{ total: number; active: number; inactive: number }>;
   updateAllAccLogStatuses(status: boolean): Promise<number>;
+  updateSelectedAccLogStatuses(ids: number[], status: boolean): Promise<number>;
 
   getUserByUsername(username: string): Promise<User | undefined>;
 }
@@ -133,6 +135,19 @@ export class MemoryStorage implements IStorage {
     return this.accountsData.length;
   }
 
+  async updateSelectedAccountStatuses(ids: number[], status: boolean): Promise<number> {
+    const targetIds = new Set(ids);
+    let updated = 0;
+    this.accountsData.forEach((item) => {
+      if (targetIds.has(item.id)) {
+        item.status = status;
+        item.updatedAt = new Date();
+        updated += 1;
+      }
+    });
+    return updated;
+  }
+
   async getAllAccLogs(): Promise<AccLog[]> {
     return [...this.accLogsData];
   }
@@ -190,6 +205,19 @@ export class MemoryStorage implements IStorage {
       item.updatedAt = new Date();
     });
     return this.accLogsData.length;
+  }
+
+  async updateSelectedAccLogStatuses(ids: number[], status: boolean): Promise<number> {
+    const targetIds = new Set(ids);
+    let updated = 0;
+    this.accLogsData.forEach((item) => {
+      if (targetIds.has(item.id)) {
+        item.status = status;
+        item.updatedAt = new Date();
+        updated += 1;
+      }
+    });
+    return updated;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
@@ -345,6 +373,22 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async updateSelectedAccountStatuses(ids: number[], status: boolean): Promise<number> {
+    if (ids.length === 0) {
+      return 0;
+    }
+    try {
+      const result = await db
+        .update(accounts)
+        .set({ status, updatedAt: new Date() })
+        .where(inArray(accounts.id, ids));
+      return result.rowCount ?? 0;
+    } catch (error) {
+      console.error('Error in updateSelectedAccountStatuses:', error);
+      throw new Error('Failed to update selected account statuses');
+    }
+  }
+
   async getAllAccLogs(): Promise<AccLog[]> {
     try {
       return await db.select().from(accLogs);
@@ -454,6 +498,22 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error in updateAllAccLogStatuses:', error);
       throw new Error('Failed to update all acc log statuses');
+    }
+  }
+
+  async updateSelectedAccLogStatuses(ids: number[], status: boolean): Promise<number> {
+    if (ids.length === 0) {
+      return 0;
+    }
+    try {
+      const result = await db
+        .update(accLogs)
+        .set({ status, updatedAt: new Date() })
+        .where(inArray(accLogs.id, ids));
+      return result.rowCount ?? 0;
+    } catch (error) {
+      console.error('Error in updateSelectedAccLogStatuses:', error);
+      throw new Error('Failed to update selected acc log statuses');
     }
   }
 

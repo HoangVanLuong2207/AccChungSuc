@@ -105,6 +105,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
+  app.patch("/api/accounts/status", isAuthenticated, async (req, res) => {
+    try {
+      const body = z
+        .object({
+          ids: z.array(z.number().int().positive()).min(1),
+          status: z.boolean(),
+        })
+        .parse(req.body);
+      const updatedCount = await storage.updateSelectedAccountStatuses(body.ids, body.status);
+      res.json({ updated: updatedCount, status: body.status });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update account statuses" });
+      }
+    }
+  });
+
 
   app.post("/api/logout", (req, res) => {
     req.session.destroy((err) => {
@@ -223,7 +242,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Account not found" });
       }
       
-      res.status(204).send();
+      res.json({ message: "Account deleted." });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete account" });
     }
@@ -359,6 +378,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
+  app.patch("/api/acclogs/status", isAuthenticated, async (req, res) => {
+    try {
+      const body = z
+        .object({
+          ids: z.array(z.number().int().positive()).min(1),
+          status: z.boolean(),
+        })
+        .parse(req.body);
+      const updatedCount = await storage.updateSelectedAccLogStatuses(body.ids, body.status);
+      res.json({ updated: updatedCount, status: body.status });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update accLog statuses" });
+      }
+    }
+  });
+
 
   // Get all accLogs
   app.get("/api/acclogs", isAuthenticated, async (req, res) => {
@@ -416,7 +454,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "AccLog not found" });
       }
 
-      res.status(204).send();
+      res.json({ message: "Acc log deleted." });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete accLog" });
     }
