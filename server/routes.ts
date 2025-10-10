@@ -9,6 +9,28 @@ import { z } from "zod";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+function normalizeLevelField<T>(input: T): T {
+  if (Array.isArray(input)) {
+    return input.map((item) => normalizeLevelField(item)) as unknown as T;
+  }
+  if (input && typeof input === "object") {
+    const source = input as Record<string, unknown>;
+    const hasLv = Object.prototype.hasOwnProperty.call(source, "lv");
+    const normalized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(source)) {
+      if (key === "LV") {
+        if (!hasLv) {
+          normalized.lv = normalizeLevelField(value);
+        }
+        continue;
+      }
+      normalized[key] = normalizeLevelField(value);
+    }
+    return normalized as unknown as T;
+  }
+  return input;
+}
+
 function extractRecordsFromFile(fileContent: string) {
   const arrayMatch = fileContent.match(/\[[\s\S]*\]/);
   if (!arrayMatch) {
@@ -22,10 +44,10 @@ function extractRecordsFromFile(fileContent: string) {
   return JSON.parse(jsonContent);
 }
 
-async function processImportRecords<T>(
+async function processImportRecords<T, I extends { username: string; password: string }>(
   records: unknown[],
-  parseRecord: (record: unknown) => { username: string; password: string },
-  createRecord: (data: { username: string; password: string }) => Promise<T>
+  parseRecord: (record: unknown) => I,
+  createRecord: (data: I) => Promise<T>
 ) {
   const createdRecords: T[] = [];
   const errors: Array<{ account: unknown; error: string }> = [];
@@ -155,7 +177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new account
   app.post("/api/accounts", isAuthenticated, async (req, res) => {
     try {
-      const validatedData = insertAccountSchema.parse(req.body);
+      const validatedData = insertAccountSchema.parse(normalizeLevelField(req.body));
       const account = await storage.createAccount(validatedData);
       res.status(201).json(account);
     } catch (error) {
@@ -300,7 +322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { createdRecords, errors } = await processImportRecords(
         records,
-        (record) => insertAccountSchema.parse(record),
+        (record) => insertAccountSchema.parse(normalizeLevelField(record)),
         (data) => storage.createAccount(data)
       );
 
@@ -322,7 +344,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { records, sourceName } = z.object({
         records: z.array(insertAccountSchema),
         sourceName: z.string().min(1).max(160).optional(),
-      }).parse(req.body);
+      }).parse(normalizeLevelField(req.body));
 
       if (records.length === 0) {
         return res.status(400).json({ message: "Khong co ban ghi de import" });
@@ -334,7 +356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { createdRecords, errors } = await processImportRecords(
         records,
-        (record) => insertAccountSchema.parse(record),
+        (record) => insertAccountSchema.parse(normalizeLevelField(record)),
         (data) => storage.createAccount(data)
       );
 
@@ -411,7 +433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new accLog
   app.post("/api/acclogs", isAuthenticated, async (req, res) => {
     try {
-      const validatedData = insertAccLogSchema.parse(req.body);
+      const validatedData = insertAccLogSchema.parse(normalizeLevelField(req.body));
       const log = await storage.createAccLog(validatedData);
       res.status(201).json(log);
     } catch (error) {
@@ -510,7 +532,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { createdRecords, errors } = await processImportRecords(
         records,
-        (record) => insertAccLogSchema.parse(record),
+        (record) => insertAccLogSchema.parse(normalizeLevelField(record)),
         (data) => storage.createAccLog(data)
       );
 
@@ -532,7 +554,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { records, sourceName } = z.object({
         records: z.array(insertAccLogSchema),
         sourceName: z.string().min(1).max(160).optional(),
-      }).parse(req.body);
+      }).parse(normalizeLevelField(req.body));
 
       if (records.length === 0) {
         return res.status(400).json({ message: "Khong co ban ghi de import" });
@@ -544,7 +566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { createdRecords, errors } = await processImportRecords(
         records,
-        (record) => insertAccLogSchema.parse(record),
+        (record) => insertAccLogSchema.parse(normalizeLevelField(record)),
         (data) => storage.createAccLog(data)
       );
 
@@ -577,5 +599,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   return httpServer;
 }
-
 
