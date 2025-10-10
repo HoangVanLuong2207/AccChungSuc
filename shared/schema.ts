@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, serial, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -7,6 +7,7 @@ export const accounts = pgTable("accounts", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  lv: integer("lv").notNull().default(0),
   status: boolean("status").notNull().default(true),
   tag: text("tag"),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
@@ -16,6 +17,9 @@ export const insertAccountSchema = createInsertSchema(accounts).pick({
   username: true,
   password: true,
   tag: true,
+  lv: true,
+}).extend({
+  lv: z.coerce.number().int().min(0).default(0),
 });
 
 export const updateAccountSchema = createInsertSchema(accounts).pick({
@@ -35,6 +39,7 @@ export const accLogs = pgTable("acclogs", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  lv: integer("lv").notNull().default(0),
   status: boolean("status").notNull().default(true),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -42,6 +47,9 @@ export const accLogs = pgTable("acclogs", {
 export const insertAccLogSchema = createInsertSchema(accLogs).pick({
   username: true,
   password: true,
+  lv: true,
+}).extend({
+  lv: z.coerce.number().int().min(0).default(0),
 });
 
 export const updateAccLogSchema = createInsertSchema(accLogs).pick({
@@ -65,3 +73,4 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+

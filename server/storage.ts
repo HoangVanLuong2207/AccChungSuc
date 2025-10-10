@@ -1,7 +1,27 @@
-﻿import { accounts, accLogs, users, type Account, type InsertAccount, type User, type AccLog, type InsertAccLog } from "@shared/schema";
+import { accounts, accLogs, users, type Account, type InsertAccount, type User, type AccLog, type InsertAccLog } from "@shared/schema";
 import { db } from "./db";
 import { randomUUID } from "crypto";
 import { eq, sql, inArray } from "drizzle-orm";
+
+const ensureLevelColumnsPromise = (async () => {
+  try {
+    await db.execute(sql`ALTER TABLE acclogs ADD COLUMN IF NOT EXISTS "lv" integer`);
+    await db.execute(sql`ALTER TABLE acclogs ALTER COLUMN "lv" SET DEFAULT 0`);
+    await db.execute(sql`UPDATE acclogs SET "lv" = 0 WHERE "lv" IS NULL`);
+    await db.execute(sql`ALTER TABLE acclogs ALTER COLUMN "lv" SET NOT NULL`);
+  } catch (error) {
+    console.error('Error ensuring lv column on acclogs:', error);
+  }
+
+  try {
+    await db.execute(sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS "lv" integer`);
+    await db.execute(sql`ALTER TABLE accounts ALTER COLUMN "lv" SET DEFAULT 0`);
+    await db.execute(sql`UPDATE accounts SET "lv" = 0 WHERE "lv" IS NULL`);
+    await db.execute(sql`ALTER TABLE accounts ALTER COLUMN "lv" SET NOT NULL`);
+  } catch (error) {
+    console.error('Error ensuring lv column on accounts:', error);
+  }
+})();
 
 interface IStorage {
   getAllAccounts(): Promise<Account[]>;
@@ -54,6 +74,7 @@ export class MemoryStorage implements IStorage {
       id: this.accountIdCounter++,
       username: insertAccount.username,
       password: insertAccount.password,
+      lv: Number(insertAccount.lv ?? 0),
       status: true,
       tag: insertAccount.tag ?? null,
       updatedAt: new Date(),
@@ -157,6 +178,7 @@ export class MemoryStorage implements IStorage {
       id: this.accLogIdCounter++,
       username: insertAccLog.username,
       password: insertAccLog.password,
+      lv: Number(insertAccLog.lv ?? 0),
       status: true,
       updatedAt: new Date(),
     };
@@ -227,7 +249,14 @@ export class MemoryStorage implements IStorage {
 
 
 export class DatabaseStorage implements IStorage {
+  private readonly schemaReady = ensureLevelColumnsPromise;
+
+  private async ensureSchema() {
+    await this.schemaReady;
+  }
+
   async getAllAccounts(): Promise<Account[]> {
+    await this.ensureSchema();
     try {
       return await db.select().from(accounts);
     } catch (error) {
@@ -237,19 +266,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAccount(insertAccount: InsertAccount): Promise<Account> {
+    await this.ensureSchema();
     try {
       const [account] = await db
         .insert(accounts)
-        .values(insertAccount)
+        .values({ ...insertAccount, lv: Number(insertAccount.lv ?? 0) })
         .returning();
       return account;
     } catch (error) {
       console.error('Error in createAccount:', error);
-      throw new Error('Tài khoản đã tồn tại trong hệ thống');
+      throw new Error('Tai khoan da ton tai trong he thong');
     }
   }
 
   async updateAccountStatus(id: number, status: boolean): Promise<Account | undefined> {
+    await this.ensureSchema();
     try {
       const [account] = await db
         .update(accounts)
@@ -264,6 +295,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAccountTag(id: number, tag: string | null): Promise<Account | undefined> {
+    await this.ensureSchema();
     try {
       const [account] = await db
         .update(accounts)
@@ -278,6 +310,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateMultipleAccountTags(tag: string | null, ids?: number[]): Promise<number> {
+    await this.ensureSchema();
     try {
       if (ids && ids.length > 0) {
         const result = await db
@@ -298,6 +331,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAccount(id: number): Promise<boolean> {
+    await this.ensureSchema();
     try {
       const result = await db
         .delete(accounts)
@@ -310,6 +344,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteMultipleAccounts(ids: number[]): Promise<number> {
+    await this.ensureSchema();
     if (ids.length === 0) {
       return 0;
     }
@@ -325,6 +360,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAllAccounts(): Promise<number> {
+    await this.ensureSchema();
     try {
       const result = await db.delete(accounts);
       return result.rowCount ?? 0;
@@ -335,6 +371,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAccountStats(): Promise<{ total: number; active: number; inactive: number }> {
+    await this.ensureSchema();
     try {
       const [stats] = await db
         .select({
@@ -360,6 +397,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAllAccountStatuses(status: boolean): Promise<number> {
+    await this.ensureSchema();
     try {
       await db.update(accounts).set({ status, updatedAt: new Date() });
       const [row] = await db
@@ -374,6 +412,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateSelectedAccountStatuses(ids: number[], status: boolean): Promise<number> {
+    await this.ensureSchema();
     if (ids.length === 0) {
       return 0;
     }
@@ -390,6 +429,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllAccLogs(): Promise<AccLog[]> {
+    await this.ensureSchema();
     try {
       return await db.select().from(accLogs);
     } catch (error) {
@@ -399,10 +439,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAccLog(insertAccLog: InsertAccLog): Promise<AccLog> {
+    await this.ensureSchema();
     try {
       const [log] = await db
         .insert(accLogs)
-        .values(insertAccLog)
+        .values({ ...insertAccLog, lv: Number(insertAccLog.lv ?? 0) })
         .returning();
       return log;
     } catch (error) {
@@ -412,6 +453,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAccLogStatus(id: number, status: boolean): Promise<AccLog | undefined> {
+    await this.ensureSchema();
     try {
       const [log] = await db
         .update(accLogs)
@@ -426,6 +468,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAccLog(id: number): Promise<boolean> {
+    await this.ensureSchema();
     try {
       const result = await db
         .delete(accLogs)
@@ -438,6 +481,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteMultipleAccLogs(ids: number[]): Promise<number> {
+    await this.ensureSchema();
     if (ids.length === 0) {
       return 0;
     }
@@ -453,6 +497,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAllAccLogs(): Promise<number> {
+    await this.ensureSchema();
     try {
       const result = await db.delete(accLogs);
       return result.rowCount ?? 0;
@@ -463,6 +508,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAccLogStats(): Promise<{ total: number; active: number; inactive: number }> {
+    await this.ensureSchema();
     try {
       const [stats] = await db
         .select({
@@ -488,6 +534,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAllAccLogStatuses(status: boolean): Promise<number> {
+    await this.ensureSchema();
     try {
       await db.update(accLogs).set({ status, updatedAt: new Date() });
       const [row] = await db
@@ -502,6 +549,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateSelectedAccLogStatuses(ids: number[], status: boolean): Promise<number> {
+    await this.ensureSchema();
     if (ids.length === 0) {
       return 0;
     }
@@ -518,6 +566,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
+    await this.ensureSchema();
     try {
       const [user] = await db
         .select()
@@ -543,5 +592,4 @@ if (useDatabaseStorage) {
 }
 
 export const storage = storageInstance;
-
 

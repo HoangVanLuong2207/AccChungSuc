@@ -105,8 +105,8 @@ export default function ImportSection({
             <strong>Format file:</strong><br />
             <code className="font-mono text-xs">
               [<br />
-              &nbsp;&nbsp;{`{"username": "user1", "password": "pass1"},`}<br />
-              &nbsp;&nbsp;{`{"username": "user2", "password": "pass2"}`}<br />
+              &nbsp;&nbsp;{`{"username": "user1", "password": "pass1", "LV": 10},`}<br />
+              &nbsp;&nbsp;{`{"username": "user2", "password": "pass2", "LV": 25}`}<br />
               ]
             </code>
           </div>
@@ -177,6 +177,12 @@ export default function ImportSection({
     </div>
   );
 }
+
+
+
+
+
+
 
 
 

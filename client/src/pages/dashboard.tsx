@@ -70,19 +70,21 @@ type EntityRecord = Account | AccLog;
 type ColumnMapping = {
   username: string;
   password: string;
+  level?: string;
 };
 
 type NormalizedRow = {
   index: number;
   username: string;
   password: string;
+  lv: number;
   issues: string[];
   raw: Record<string, any>;
 };
 
 type NormalizationResult = {
   rows: NormalizedRow[];
-  ready: Array<{ username: string; password: string }>;
+  ready: Array<{ username: string; password: string; lv: number }>;
   duplicateCount: number;
   blockingIssueCount: number;
 };
@@ -181,7 +183,7 @@ type TagModalState =
   | { mode: "bulk"; ids: number[]; initialTag: string };
 
 type ImportPayload = {
-  records: Array<{ username: string; password: string }>;
+  records: Array<{ username: string; password: string; lv: number }>;
   sourceName: string;
 };
 
@@ -328,6 +330,7 @@ function autoDetectMapping(headers: string[]): ColumnMapping {
   return {
     username: findByKeywords(["user", "account", "tài khoản"], 0),
     password: findByKeywords(["pass", "mat khau", "pwd"], 1),
+    level: findByKeywords(["lv", "level", "cap"], 2),
   };
 }
 
@@ -338,6 +341,29 @@ function normalizeRows(rawRows: Record<string, any>[], mapping: ColumnMapping): 
     const username = typeof usernameValue === "string" ? usernameValue.trim() : String(usernameValue ?? "").trim();
     const password = typeof passwordValue === "string" ? passwordValue.trim() : String(passwordValue ?? "").trim();
     const issues: string[] = [];
+
+    const levelCandidates: unknown[] = [];
+    if (mapping.level && mapping.level.length > 0) {
+      levelCandidates.push(row[mapping.level]);
+    }
+    levelCandidates.push(row["LV"], row["lv"], row["Lv"], row["level"]);
+
+    const levelCandidate = levelCandidates.find((value) => {
+      if (value === undefined || value === null) {
+        return false;
+      }
+      return String(value).trim().length > 0;
+    });
+
+    let lv = 0;
+    if (levelCandidate !== undefined) {
+      const parsedLevel = Number(String(levelCandidate).trim());
+      if (Number.isFinite(parsedLevel) && parsedLevel >= 0) {
+        lv = Math.trunc(parsedLevel);
+      } else {
+        issues.push("LV khong hop le");
+      }
+    }
 
     if (!username) {
       issues.push("Thieu username");
@@ -353,6 +379,7 @@ function normalizeRows(rawRows: Record<string, any>[], mapping: ColumnMapping): 
       index,
       username,
       password,
+      lv,
       issues,
       raw: row,
     };
@@ -384,7 +411,7 @@ function normalizeRows(rawRows: Record<string, any>[], mapping: ColumnMapping): 
 
   const ready = rows
     .filter((row) => row.issues.length === 0)
-    .map((row) => ({ username: row.username, password: row.password }));
+    .map((row) => ({ username: row.username, password: row.password, lv: row.lv }));
 
   return {
     rows,
@@ -1090,11 +1117,12 @@ interface ImportPipelineAssistantProps {
 type PipelineStep = 1 | 2 | 3;
 
 function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipelineAssistantProps) {
+  const LEVEL_MAPPING_NONE = "__none__";
   const entityLabel = ENTITY_CONFIG[entity].label;
   const [step, setStep] = useState<PipelineStep>(1);
   const [rawRows, setRawRows] = useState<Record<string, any>[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
-  const [mapping, setMapping] = useState<ColumnMapping>({ username: "", password: "" });
+  const [mapping, setMapping] = useState<ColumnMapping>({ username: "", password: "", level: "" });
   const [validation, setValidation] = useState<NormalizationResult | null>(null);
   const [previewPage, setPreviewPage] = useState(1);
   const [sourceName, setSourceName] = useState("");
@@ -1110,8 +1138,20 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
     }
     const collected = collectHeaders(rawRows);
     setHeaders(collected);
-    if (!mapping.username || !mapping.password || !collected.includes(mapping.username) || !collected.includes(mapping.password)) {
-      setMapping(autoDetectMapping(collected));
+
+    const autoMapping = autoDetectMapping(collected);
+    const nextMapping: ColumnMapping = {
+      username: mapping.username && collected.includes(mapping.username) ? mapping.username : autoMapping.username,
+      password: mapping.password && collected.includes(mapping.password) ? mapping.password : autoMapping.password,
+      level: mapping.level && mapping.level.length > 0 && collected.includes(mapping.level) ? mapping.level : (autoMapping.level ?? ""),
+    };
+
+    if (
+      nextMapping.username !== mapping.username ||
+      nextMapping.password !== mapping.password ||
+      (nextMapping.level ?? "") !== (mapping.level ?? "")
+    ) {
+      setMapping(nextMapping);
     }
   }, [rawRows]);
 
@@ -1135,7 +1175,7 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
     setStep(1);
     setRawRows([]);
     setHeaders([]);
-    setMapping({ username: "", password: "" });
+    setMapping({ username: "", password: "", level: "" });
     setValidation(null);
     setSourceName("");
     setSheetUrl("");
@@ -1284,7 +1324,7 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
               <span>Mapping cột</span>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-2">
                 <Label>Username</Label>
                 <Select value={mapping.username} onValueChange={(value) => setMapping((prev) => ({ ...prev, username: value }))}>
@@ -1307,6 +1347,22 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
                     <SelectValue placeholder="Chon cot password" />
                   </SelectTrigger>
                   <SelectContent>
+                    {headers.map((header) => (
+                      <SelectItem key={header} value={header}>
+                        {header}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Cap do</Label>
+                <Select value={mapping.level && mapping.level.length > 0 ? mapping.level : LEVEL_MAPPING_NONE} onValueChange={(value) => setMapping((prev) => ({ ...prev, level: value === LEVEL_MAPPING_NONE ? "" : value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chon cot cap do" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={LEVEL_MAPPING_NONE}>(Khong chon)</SelectItem>
                     {headers.map((header) => (
                       <SelectItem key={header} value={header}>
                         {header}
@@ -1378,7 +1434,8 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
                     <th className="px-3 py-2">#</th>
                     <th className="px-3 py-2">Username</th>
                     <th className="px-3 py-2">Password</th>
-                    <th className="px-3 py-2">Ghi chú</th>
+                    <th className="px-3 py-2">Cap do</th>
+                    <th className="px-3 py-2">Ghi chu</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1387,6 +1444,7 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
                       <td className="px-3 py-2 text-xs text-muted-foreground">{row.index + 1}</td>
                       <td className="truncate px-3 py-2 font-medium">{row.username || "(trong)"}</td>
                       <td className="truncate px-3 py-2 text-muted-foreground">{row.password || "(trong)"}</td>
+                      <td className="px-3 py-2 text-center text-muted-foreground">{row.lv}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">
                         {row.issues.length > 0 ? row.issues.join(", ") : "Hop le"}
                       </td>
@@ -1575,6 +1633,7 @@ export default function Dashboard() {
   }, [accounts]);
 
   const [accountTagFilter, setAccountTagFilter] = useState<TagFilterValue>("all");
+  const [logLevelFilter, setLogLevelFilter] = useState<string>("all");
 
   const filteredAccounts = useMemo(() => {
     const base = filterRecords(accounts, dateFilter, entityUi.accounts, "accounts") as Account[];
@@ -1597,10 +1656,27 @@ export default function Dashboard() {
     });
   }, [accounts, entityUi.accounts, dateFilter, accountTagFilter]);
 
-  const filteredLogs = useMemo(
-    () => filterRecords(logs, dateFilter, entityUi.logs, "logs"),
+  const baseFilteredLogs = useMemo(
+    () => filterRecords(logs, dateFilter, entityUi.logs, "logs") as AccLog[],
     [logs, entityUi.logs, dateFilter],
   );
+
+  const logLevelOptions = useMemo(() => {
+    const levels = new Set<number>();
+    for (const log of baseFilteredLogs) {
+      if (typeof log.lv === "number" && Number.isFinite(log.lv)) {
+        levels.add(log.lv);
+      }
+    }
+    return Array.from(levels).sort((a, b) => a - b);
+  }, [baseFilteredLogs]);
+
+  const filteredLogs = useMemo(() => {
+    if (logLevelFilter === "all") {
+      return baseFilteredLogs;
+    }
+    return baseFilteredLogs.filter((log) => String(log.lv ?? "") === logLevelFilter);
+  }, [baseFilteredLogs, logLevelFilter]);
 
   useEffect(() => {
     const totalPagesAccounts = Math.max(1, Math.ceil(filteredAccounts.length / entityUi.accounts.pageSize));
@@ -1655,7 +1731,8 @@ export default function Dashboard() {
         ? "Chưa gán Tag"
         : `Team ${accountTagFilter}`)
     : null;
-  const isFilterDefault = dateFilter === "all" && accountTagFilter === "all";
+  const levelFilterLabel = activeTab === "logs" && logLevelFilter !== "all" ? `LV ${logLevelFilter}` : null;
+  const isFilterDefault = dateFilter === "all" && accountTagFilter === "all" && logLevelFilter === "all";
   const canShowCharts = widgetState.statusChart || widgetState.activityTimeline;
   const canShowImportAssistant = widgetState.importAssistant;
 
@@ -1707,6 +1784,14 @@ export default function Dashboard() {
     }));
   }, []);
 
+  const handleLogLevelFilterChange = useCallback((value: string) => {
+    setLogLevelFilter(value);
+    setEntityUi((prev) => ({
+      ...prev,
+      logs: { ...prev.logs, page: 1 },
+    }));
+  }, []);
+
   useEffect(() => {
     if (accountTagFilter === "all") {
       return;
@@ -1727,6 +1812,17 @@ export default function Dashboard() {
   }, [accountTagFilter, tagOptions, hasUnassignedTag, handleTagFilterChange]);
 
   useEffect(() => {
+    if (logLevelFilter === "all") {
+      return;
+    }
+
+    const hasLevel = baseFilteredLogs.some((log) => String(log.lv ?? "") === logLevelFilter);
+    if (!hasLevel) {
+      setLogLevelFilter("all");
+    }
+  }, [baseFilteredLogs, logLevelFilter]);
+
+  useEffect(() => {
     if (accountTagFilter !== "all" && accounts.length > 0 && filteredAccounts.length === 0) {
       handleTagFilterChange("all");
     }
@@ -1735,6 +1831,7 @@ export default function Dashboard() {
   const handleResetQuickFilters = () => {
     setDateFilter("all");
     handleTagFilterChange("all");
+    handleLogLevelFilterChange("all");
   };
 
   const handleSelectedChange = (entity: EntityKey, ids: number[]) => {
@@ -2009,6 +2106,12 @@ export default function Dashboard() {
                 {teamFilterLabel}
               </Badge>
             ) : null}
+            {activeTab === "logs" && levelFilterLabel ? (
+              <Badge variant="outline" className="gap-1 rounded-full px-3 py-1">
+                <Filter className="mr-1 h-3.5 w-3.5" />
+                {levelFilterLabel}
+              </Badge>
+            ) : null}
             {isFilterDefault ? (
               <span className="text-xs text-muted-foreground">Đang dùng mặc định</span>
             ) : null}
@@ -2154,6 +2257,10 @@ export default function Dashboard() {
                 onPageSizeChange={(size) => handlePageSizeChange("logs", size)}
                 title="Log 20~30"
                 emptyMessage={ENTITY_CONFIG.logs.emptyMessage}
+                showLevelColumn
+                levelFilter={logLevelFilter}
+                levelOptions={logLevelOptions}
+                onLevelFilterChange={handleLogLevelFilterChange}
               />
 
               <div className="space-y-6">
@@ -2205,14 +2312,32 @@ export default function Dashboard() {
                   <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tag</Label>
                   <Select value={accountTagFilter} onValueChange={(value) => handleTagFilterChange(value as TagFilterValue)}>
                     <SelectTrigger className="h-10 w-full rounded-full border-border/70 text-sm">
-                      <SelectValue placeholder="Chọn Tag" />
+                      <SelectValue placeholder="Chon Tag" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tất cả Tag</SelectItem>
-                      {hasUnassignedTag ? (<SelectItem value={TAG_FILTER_UNASSIGNED}>Chưa gán Tag</SelectItem>) : null}
+                      <SelectItem value="all">Tat ca Tag</SelectItem>
+                      {hasUnassignedTag ? (<SelectItem value={TAG_FILTER_UNASSIGNED}>Chua gan Tag</SelectItem>) : null}
                       {tagOptions.map((option) => (
                         <SelectItem key={option} value={option}>
                           {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+              {activeTab === "logs" ? (
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cap do</Label>
+                  <Select value={logLevelFilter} onValueChange={handleLogLevelFilterChange}>
+                    <SelectTrigger className="h-10 w-full rounded-full border-border/70 text-sm">
+                      <SelectValue placeholder="Chon cap do" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tat ca cap do</SelectItem>
+                      {logLevelOptions.map((option) => (
+                        <SelectItem key={option} value={String(option)}>
+                          LV {option}
                         </SelectItem>
                       ))}
                     </SelectContent>

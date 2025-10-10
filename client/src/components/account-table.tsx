@@ -38,8 +38,13 @@ interface AccountTableProps {
   title?: string;
   emptyMessage?: string;
   showTagColumn?: boolean;
+  showLevelColumn?: boolean;
+  levelFilter?: string;
+  levelOptions?: number[];
+  onLevelFilterChange?: (value: string) => void;
   onEditTag?: (account: AccountLike) => void;
 }
+
 
 const formatUpdatedAt = (value: AccountLike["updatedAt"]) =>
   new Date(value).toLocaleString("vi-VN", {
@@ -80,6 +85,10 @@ export default function AccountTable({
   title = "Danh sách tài khoản",
   emptyMessage = "Không có tài khoản nào được tìm thấy.",
   showTagColumn = false,
+  showLevelColumn = false,
+  levelFilter = "all",
+  levelOptions = [],
+  onLevelFilterChange,
   onEditTag,
 }: AccountTableProps) {
   const currentPageIds = accounts.map((acc) => acc.id);
@@ -111,7 +120,10 @@ export default function AccountTable({
   const selectedCount = selectedAccounts.length;
   const hasSelection = selectedCount > 0;
   const canEditTag = showTagColumn && typeof onEditTag === "function";
-  const columnCount = 7 + (showTagColumn ? 1 : 0);
+  const levelOptionValues = Array.isArray(levelOptions) ? levelOptions : [];
+  const hasLevelFilter = typeof onLevelFilterChange === "function" && levelOptionValues.length > 0;
+  const normalizedLevelFilter = levelFilter ?? "all";
+  const columnCount = 7 + (showTagColumn ? 1 : 0) + (showLevelColumn ? 1 : 0);
 
   if (isLoading) {
     return (
@@ -167,6 +179,21 @@ export default function AccountTable({
                   <SelectItem value="off">Tạm dừng</SelectItem>
                 </SelectContent>
               </Select>
+              {hasLevelFilter ? (
+                <Select value={normalizedLevelFilter} onValueChange={(value) => onLevelFilterChange?.(value)}>
+                  <SelectTrigger className="h-10 w-full rounded-2xl border-border/70 text-sm sm:w-[160px]">
+                    <SelectValue placeholder="Cấp độ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả cấp độ</SelectItem>
+                    {levelOptionValues.map((option) => (
+                      <SelectItem key={option} value={String(option)}>
+                        LV {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
             </div>
 
             
@@ -185,6 +212,7 @@ export default function AccountTable({
                 <th className="w-[72px] px-4 py-3">ID</th>
                 <th className="px-4 py-3 min-w-[110px]">Tài khoản</th>
                 <th className="px-4 py-3 min-w-[110px]">Mật khẩu</th>
+                {showLevelColumn ? <th className="w-[100px] px-4 py-3 text-center">Cấp độ</th> : null}
                 {showTagColumn ? <th className="px-4 py-3 min-w-[160px]">Tag</th> : null}
                 <th className="w-[140px] px-4 py-3">Trạng thái</th>
                 <th className="w-[180px] px-4 py-3 whitespace-nowrap">Cập nhật</th>
@@ -203,6 +231,7 @@ export default function AccountTable({
                   const statusClasses = account.status
                     ? "bg-emerald-500/15 text-emerald-600"
                     : "bg-rose-500/15 text-rose-600";
+                  const levelDisplay = typeof account.lv === "number" ? account.lv : "--";
                   const tagValue =
                     showTagColumn && "tag" in account ? ((account as Account).tag ?? null) : null;
                   const hasTag = !!(tagValue && tagValue.length > 0);
@@ -228,6 +257,11 @@ export default function AccountTable({
                           ●●●●●●●●●●
                         </span>
                       </td>
+                      {showLevelColumn ? (
+                        <td className="px-4 py-4 text-center text-sm font-semibold text-card-foreground">
+                          {levelDisplay}
+                        </td>
+                      ) : null}
                       {showTagColumn ? (
                         <td className="px-4 py-4">
                           {canEditTag ? (
@@ -324,6 +358,7 @@ export default function AccountTable({
               const statusClasses = account.status
                 ? "bg-emerald-500/15 text-emerald-600"
                 : "bg-rose-500/15 text-rose-600";
+              const levelDisplay = typeof account.lv === "number" ? account.lv : "--";
               const mobileTagValue =
                 showTagColumn && "tag" in account ? ((account as Account).tag ?? null) : null;
               const mobileHasTag = !!(mobileTagValue && mobileTagValue.length > 0);
@@ -338,6 +373,9 @@ export default function AccountTable({
                         {account.username}
                       </div>
                       <div className="text-xs text-muted-foreground">Cập nhật {formatUpdatedAt(account.updatedAt)}</div>
+                      {showLevelColumn ? (
+                        <div className="text-xs text-muted-foreground">Cấp độ: <span className="font-semibold text-card-foreground">{levelDisplay}</span></div>
+                      ) : null}
                       <Badge className={`mt-2 inline-flex items-center gap-2 rounded-full border-0 px-3 py-1 text-xs font-semibold ${statusClasses}`} data-testid={`status-${account.id}`}>
                         <span className="h-2 w-2 rounded-full bg-current" />
                         {account.status ? "ON" : "OFF"}
