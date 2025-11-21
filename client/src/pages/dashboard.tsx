@@ -117,7 +117,7 @@ const ENTITY_CONFIG: Record<EntityKey, EntityConfig> = {
     bulkDeletePath: "/api/accounts",
     importPath: "/api/accounts/import-batch",
     exportPrefix: "accounts",
-    emptyMessage: "Khong co tài khoản phu hop",
+    emptyMessage: "Không có clone csuc phù hợp",
   },
   logs: {
     label: "Acc log",
@@ -131,15 +131,15 @@ const ENTITY_CONFIG: Record<EntityKey, EntityConfig> = {
     bulkDeletePath: "/api/acclogs",
     importPath: "/api/acclogs/import-batch",
     exportPrefix: "acclogs",
-    emptyMessage: "Khong co acc log phu hop",
+    emptyMessage: "Không có clone csuc cần up phù hợp",
   },
 };
 
 const DATE_FILTERS: Array<{ key: DateFilterKey; label: string; hint: string }> = [
-  { key: "all", label: "Tất cả", hint: "Khong gioi han thoi gian" },
-  { key: "today", label: "Hôm nay", hint: "Tu 00:00 den hien tai" },
-  { key: "7d", label: "7 ngày", hint: "7 ngày gan nhat" },
-  { key: "30d", label: "30 ngày", hint: "30 ngày gan nhat" },
+  { key: "all", label: "Tất cả", hint: "Không giới hạn thời gian" },
+  { key: "today", label: "Hôm nay", hint: "Từ 00:00 đến hiện tại" },
+  { key: "7d", label: "7 ngày", hint: "7 ngày gần nhất" },
+  { key: "30d", label: "30 ngày", hint: "30 ngày gần nhất" },
 ];
 
 const DEFAULT_WIDGET_STATE = {
@@ -361,18 +361,18 @@ function normalizeRows(rawRows: Record<string, any>[], mapping: ColumnMapping): 
       if (Number.isFinite(parsedLevel) && parsedLevel >= 0) {
         lv = Math.trunc(parsedLevel);
       } else {
-        issues.push("LV khong hop le");
+        issues.push("LV không hợp lệ");
       }
     }
 
     if (!username) {
-      issues.push("Thieu username");
+      issues.push("Thiếu username");
     }
     if (!password) {
-      issues.push("Thieu password");
+      issues.push("Thiếu password");
     }
     if (password && password.length < 4) {
-      issues.push("Password qua ngan");
+      issues.push("Password quá ngắn");
     }
 
     return {
@@ -404,7 +404,7 @@ function normalizeRows(rawRows: Record<string, any>[], mapping: ColumnMapping): 
     if (bucket.length > 1) {
       duplicateCount += bucket.length;
       bucket.forEach((row) => {
-        row.issues.push("Trung username trong file");
+        row.issues.push("Trùng username trong file");
       });
     }
   });
@@ -454,13 +454,13 @@ function parseJson(content: string) {
   if (parsed && typeof parsed === "object" && Array.isArray(parsed.records)) {
     return parsed.records as Record<string, any>[];
   }
-  throw new Error("JSON khong chua mang ban ghi");
+  throw new Error("JSON không chứa mảng bản ghi");
 }
 
 function parseScriptModule(content: string) {
   const arrayMatch = content.match(/\[[\s\S]*\]/);
   if (!arrayMatch) {
-    throw new Error("File JS khong chua mang ban ghi hop le");
+    throw new Error("File JS không chứa mảng bản ghi hợp lệ");
   }
 
   try {
@@ -473,7 +473,7 @@ function parseScriptModule(content: string) {
     }
     return parsed as Record<string, any>[];
   } catch (error) {
-    throw new Error("Khong the doc du lieu tu file JS");
+    throw new Error("Không thể đọc dữ liệu từ file JS");
   }
 }
 
@@ -507,13 +507,13 @@ async function parseFileSource(file: File) {
       name: file.name,
     };
   }
-  throw new Error("Dinh dang file chua duoc ho tro");
+  throw new Error("Định dạng file chưa được hỗ trợ");
 }
 
 async function parseSheetLink(url: string) {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error("Khong the tai sheet tu duong dan");
+    throw new Error("Không thể tải sheet từ đường dẫn");
   }
   const contentType = response.headers.get("content-type") ?? "";
   const text = await response.text();
@@ -544,14 +544,14 @@ function copyToClipboard(value: string, label: string, toast: ReturnType<typeof 
     .writeText(value)
     .then(() => {
       toast({
-        title: "Da sao chep",
+        title: "Đã sao chép",
         description: `${label} đã được lưu vào clipboard`,
       });
     })
     .catch(() => {
       toast({
-        title: "Khong the sao chep",
-        description: "Trinh duyet khong cho phep truy cap clipboard",
+        title: "Không thể sao chép",
+        description: "Trình duyệt không cho phép truy cập clipboard",
         variant: "destructive",
       });
     });
@@ -590,8 +590,8 @@ export default records;
   window.URL.revokeObjectURL(url);
 
   toast({
-    title: "Da xuat",
-    description: `Da xuat ${records.length} ${scopeLabel}`,
+    title: "Đã xuất",
+    description: `Đã xuất ${records.length} ${scopeLabel}`,
   });
 }
 
@@ -621,8 +621,8 @@ function useEntityMutations(
     },
     onError: () => {
       toast({
-        title: "Khong the cap nhat",
-        description: `Thu lai sau khi cap nhat ${config.label.toLowerCase()}`,
+        title: "Không thể cập nhật",
+        description: `Thử lại sau khi cập nhật ${config.label.toLowerCase()}`,
         variant: "destructive",
       });
     },
@@ -635,14 +635,14 @@ function useEntityMutations(
     onSuccess: (_data, variables) => {
       invalidate();
       toast({
-        title: "Da cap nhat",
-        description: `${variables.ids.length} ${config.label.toLowerCase()} đã được ${variables.status ? 'bat' : 'tat'}`,
+        title: "Đã cập nhật",
+        description: `${variables.ids.length} ${config.label.toLowerCase()} đã được ${variables.status ? 'Bật' : 'Tắt'}`,
       });
     },
     onError: () => {
       toast({
-        title: "Khong the cap nhat",
-        description: `Thu lai sau khi cap nhat ${config.label.toLowerCase()}`,
+        title: "Không thể thay đổi",
+        description: `Thử lại sau khi cập nhật ${config.label.toLowerCase()}`,
         variant: "destructive",
       });
     },
@@ -661,8 +661,8 @@ function useEntityMutations(
     },
     onError: () => {
       toast({
-        title: "Khong the thay doi",
-        description: `Thu lai sau khi cap nhat ${config.label.toLowerCase()}`,
+        title: "Không thể cập nhật",
+        description: `Thử lại sau khi cập nhật ${config.label.toLowerCase()}`,
         variant: "destructive",
       });
     },
@@ -675,14 +675,14 @@ function useEntityMutations(
     onSuccess: () => {
       invalidate();
       toast({
-        title: "Da xoa",
+        title: "Đã xóa",
         description: `${config.label} đã được xóa`,
       });
     },
     onError: () => {
       toast({
-        title: "Khong the xoa",
-        description: `Thu lai sau khi xoa ${config.label.toLowerCase()}`,
+        title: "Không thể xóa",
+        description: `Thử lại thao tác xóa ${config.label.toLowerCase()}`,
         variant: "destructive",
       });
     },
@@ -696,16 +696,16 @@ function useEntityMutations(
     onSuccess: (_data, ids) => {
       invalidate();
       toast({
-        title: "Da xoa",
+        title: "Đã xóa",
         description: ids && ids.length > 0
-          ? `Da xoa ${ids.length} ${config.label.toLowerCase()}`
-          : `Da xoa toan bo ${config.label.toLowerCase()}`,
+          ? `Đã xóa ${ids.length} ${config.label.toLowerCase()}`
+          : `Đã xóa toàn bộ ${config.label.toLowerCase()}`,
       });
     },
     onError: () => {
       toast({
-        title: "Khong the xoa",
-        description: `Thu lai thao tac xoa ${config.label.toLowerCase()}`,
+        title: "Không thể xóa",
+        description: `Thử lại thao tác xóa ${config.label.toLowerCase()}`,
         variant: "destructive",
       });
     },
@@ -840,14 +840,14 @@ interface StatusBreakdownChartProps {
 
 const STATUS_CHART_CONFIG: ChartConfig = {
   active: {
-    label: "Dang hoat dong",
+    label: "Đang hoat động",
     theme: {
       light: "var(--chart-1)",
       dark: "rgba(255, 255, 255, 0.85)",
     },
   },
   inactive: {
-    label: "Tam dung",
+    label: "Tạm dừng",
     theme: {
       light: "var(--chart-2)",
       dark: "rgba(255, 255, 255, 0.45)",
@@ -936,7 +936,7 @@ function ActivityTimeline({ data, hasActivity }: ActivityTimelineProps) {
           </ChartContainer>
         ) : (
           <div className="flex h-[220px] items-center justify-center rounded-md border border-dashed border-border/70 text-sm text-muted-foreground">
-            Chua co hoat dong trong 14 ngày gan nhat
+           Chưa có hoạt động trong 14 ngày gần nhất
           </div>
         )}
       </CardContent>
@@ -1039,7 +1039,7 @@ function BulkActionsCard({
         <CardTitle className="text-base font-semibold">Hành động nhanh</CardTitle>
         <CardDescription>
           {selectionCount > 0
-            ? `${selectionCount} ${label.toLowerCase()} dang duoc chon`
+            ? `${selectionCount} ${label.toLowerCase()} đang được chọn`
             : `${totalCount} ${label.toLowerCase()} sẵn sàng`}
         </CardDescription>
       </CardHeader>
@@ -1080,7 +1080,7 @@ function BulkActionsCard({
         ) : null}
         <Separator />
         <Button size="sm" variant="outline" className="w-full" onClick={onExportSelected}>
-          Xuẩt mục đã chọn
+          Xuất mục đã chọn
         </Button>
         <Button size="sm" variant="outline" className="w-full" onClick={onExportAll}>
           Xuất theo bộ lọc
@@ -1193,14 +1193,14 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
     try {
       const { rows, name } = await parseFileSource(file);
       if (!rows || rows.length === 0) {
-        throw new Error("File khong chua du lieu");
+        throw new Error("File không có dữ liệu");
       }
       setRawRows(rows);
       setSourceName(name);
       setStep(2);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Khong the doc file da chon");
+      setError(err instanceof Error ? err.message : "Không thể đọc file đã chọn");
     } finally {
       setLoadingSource(false);
       event.target.value = "";
@@ -1216,14 +1216,14 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
     try {
       const { rows, name } = await parseSheetLink(sheetUrl);
       if (!rows || rows.length === 0) {
-        throw new Error("Sheet khong co du lieu");
+        throw new Error("Sheet không có dữ liệu");
       }
       setRawRows(rows);
       setSourceName(name);
       setStep(2);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Khong the tai sheet");
+      setError(err instanceof Error ? err.message : "Không thể tải sheet");
     } finally {
       setLoadingSource(false);
     }
@@ -1329,7 +1329,7 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
                 <Label>Username</Label>
                 <Select value={mapping.username} onValueChange={(value) => setMapping((prev) => ({ ...prev, username: value }))}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Chon cot username" />
+                    <SelectValue placeholder="Chọn cột username" />
                   </SelectTrigger>
                   <SelectContent>
                     {headers.map((header) => (
@@ -1344,7 +1344,7 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
                 <Label>Password</Label>
                 <Select value={mapping.password} onValueChange={(value) => setMapping((prev) => ({ ...prev, password: value }))}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Chon cot password" />
+                    <SelectValue placeholder="Chọn cột password" />
                   </SelectTrigger>
                   <SelectContent>
                     {headers.map((header) => (
@@ -1356,13 +1356,13 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Cap do</Label>
+                <Label>Cấp độ</Label>
                 <Select value={mapping.level && mapping.level.length > 0 ? mapping.level : LEVEL_MAPPING_NONE} onValueChange={(value) => setMapping((prev) => ({ ...prev, level: value === LEVEL_MAPPING_NONE ? "" : value }))}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Chon cot cap do" />
+                    <SelectValue placeholder="Chọn cột cấp độ" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={LEVEL_MAPPING_NONE}>(Khong chon)</SelectItem>
+                    <SelectItem value={LEVEL_MAPPING_NONE}>(Không chọn)</SelectItem>
                     {headers.map((header) => (
                       <SelectItem key={header} value={header}>
                         {header}
@@ -1382,7 +1382,7 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
               </Badge>
               {sourceName ? (
                 <Badge variant="outline" className="rounded-full">
-                  Tu: {sourceName}
+                  Từ: {sourceName}
                 </Badge>
               ) : null}
             </div>
@@ -1434,8 +1434,8 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
                     <th className="px-3 py-2">#</th>
                     <th className="px-3 py-2">Username</th>
                     <th className="px-3 py-2">Password</th>
-                    <th className="px-3 py-2">Cap do</th>
-                    <th className="px-3 py-2">Ghi chu</th>
+                    <th className="px-3 py-2">Cấp độ</th>
+                    <th className="px-3 py-2">Ghi chú</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1446,7 +1446,7 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
                       <td className="truncate px-3 py-2 text-muted-foreground">{row.password || "(trong)"}</td>
                       <td className="px-3 py-2 text-center text-muted-foreground">{row.lv}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">
-                        {row.issues.length > 0 ? row.issues.join(", ") : "Hop le"}
+                        {row.issues.length > 0 ? row.issues.join(", ") : "Hợp lệ"}
                       </td>
                     </tr>
                   ))}
@@ -1559,9 +1559,9 @@ export default function Dashboard() {
       return apiRequest<ImportApiResponse>("POST", ENTITY_CONFIG.accounts.importPath, payload);
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : "Khong the import tài khoản";
+      const message = error instanceof Error ? error.message : "Không thể import tài khoản";
       toast({
-        title: "Import that bai",
+        title: "Import thất bại",
         description: message,
         variant: "destructive",
       });
@@ -1573,9 +1573,9 @@ export default function Dashboard() {
       return apiRequest<ImportApiResponse>("POST", ENTITY_CONFIG.logs.importPath, payload);
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : "Khong the import acc log";
+      const message = error instanceof Error ? error.message : "Không thể import acc log";
       toast({
-        title: "Import that bai",
+        title: "Import thất bại",
         description: message,
         variant: "destructive",
       });
@@ -1587,9 +1587,9 @@ export default function Dashboard() {
       return apiRequest<Account>("PATCH", `/api/accounts/${id}/tag`, { tag });
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : "Khong the cap nhat tag";
+      const message = error instanceof Error ? error.message : "Không thể cập nhật tag";
       toast({
-        title: "Cap nhat that bai",
+        title: "Cập nhật thất bại",
         description: message,
         variant: "destructive",
       });
@@ -1601,9 +1601,9 @@ export default function Dashboard() {
       return apiRequest<{ updated: number; tag: string | null }>("PATCH", "/api/accounts/tag", { ids, tag });
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : "Khong the cap nhat tag hang loat";
+      const message = error instanceof Error ? error.message : "Không thể cập nhật tag hàng loạt";
       toast({
-        title: "Cap nhat that bai",
+        title: "Cập nhật thất bại",
         description: message,
         variant: "destructive",
       });
@@ -1941,8 +1941,8 @@ export default function Dashboard() {
     const selectedIds = entityUi[entity].selectedIds;
     if (selectedIds.length === 0) {
       toast({
-        title: "Chua co muc nao",
-        description: "Vui long chon it nhat mot muc de cap nhat",
+        title: "Chưa có mục nào",
+        description: "Vui lòng chọn ít nhất một mục để cập nhật",
         variant: "destructive",
       });
       return;
@@ -1966,8 +1966,8 @@ export default function Dashboard() {
     const ids = entityUi.accounts.selectedIds;
     if (ids.length === 0) {
       toast({
-        title: "Chua chon tài khoản",
-        description: "Vui long chon it nhat mot tài khoản de gan tag",
+        title: "Chưa chọn tài khoản",
+        description: "Vui lòng chọn ít nhất một tài khoản để gắn tag",
         variant: "destructive",
       });
       return;
@@ -1998,8 +1998,8 @@ export default function Dashboard() {
       setLastImportSummary(summary);
       setImportFeedback({ ...summary, errorDetails: response.errorDetails });
       toast({
-        title: "Import thanh cong",
-        description: `Da them ${response.imported} ${ENTITY_CONFIG[entity].label.toLowerCase()}`,
+        title: "Import thành công",
+        description: `Đã thêm ${response.imported} ${ENTITY_CONFIG[entity].label.toLowerCase()}`,
       });
     } catch (error) {
       // error đã được xu ly trong mutation onError
@@ -2018,7 +2018,7 @@ export default function Dashboard() {
         await updateAccountTagMutation.mutateAsync({ id: tagModalState.ids[0], tag: normalizedTag });
         toast({
           title: "Đã cập nhật tag",
-          description: normalizedTag ? `Tag moi: ${normalizedTag}` : "Da xoa tag",
+          description: normalizedTag ? `Tag mới: ${normalizedTag}` : "Đã xóa tag",
         });
       } else {
         await bulkUpdateAccountTagMutation.mutateAsync({ ids: tagModalState.ids, tag: normalizedTag });
@@ -2077,7 +2077,7 @@ export default function Dashboard() {
             <ThemeToggle />
             <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
               <LogOut className="h-4 w-4" />
-              Dang xuat
+              Đăng xuất
             </Button>
           </div>
         </div>
@@ -2160,14 +2160,14 @@ export default function Dashboard() {
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <TabsList>
-              <TabsTrigger value="accounts">Tài khoản</TabsTrigger>
-              <TabsTrigger value="logs">Acc log</TabsTrigger>
+              <TabsTrigger value="accounts">Csuc</TabsTrigger>
+              <TabsTrigger value="logs">Cần up</TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Activity className="h-4 w-4" />
               {activeTab === "accounts"
-                ? `${formatNumber(filteredAccounts.length)} / ${formatNumber(accounts.length)} tài khoản hien thi`
-                : `${formatNumber(filteredLogs.length)} / ${formatNumber(logs.length)} acc log hien thi`}
+                ? `${formatNumber(filteredAccounts.length)} / ${formatNumber(accounts.length)} tài khoản hiện thị`
+                : `${formatNumber(filteredLogs.length)} / ${formatNumber(logs.length)} acc log hiện thị`}
             </div>
           </div>
 
@@ -2312,11 +2312,11 @@ export default function Dashboard() {
                   <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tag</Label>
                   <Select value={accountTagFilter} onValueChange={(value) => handleTagFilterChange(value as TagFilterValue)}>
                     <SelectTrigger className="h-10 w-full rounded-full border-border/70 text-sm">
-                      <SelectValue placeholder="Chon Tag" />
+                      <SelectValue placeholder="Chọn Tag" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tat ca Tag</SelectItem>
-                      {hasUnassignedTag ? (<SelectItem value={TAG_FILTER_UNASSIGNED}>Chua gan Tag</SelectItem>) : null}
+                      <SelectItem value="all">Tất cả tag</SelectItem>
+                      {hasUnassignedTag ? (<SelectItem value={TAG_FILTER_UNASSIGNED}>Chưa gắn tag</SelectItem>) : null}
                       {tagOptions.map((option) => (
                         <SelectItem key={option} value={option}>
                           {option}
@@ -2328,13 +2328,13 @@ export default function Dashboard() {
               ) : null}
               {activeTab === "logs" ? (
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cap do</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cấp độ</Label>
                   <Select value={logLevelFilter} onValueChange={handleLogLevelFilterChange}>
                     <SelectTrigger className="h-10 w-full rounded-full border-border/70 text-sm">
-                      <SelectValue placeholder="Chon cap do" />
+                      <SelectValue placeholder="Chọn cấp độ" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tat ca cap do</SelectItem>
+                      <SelectItem value="all">Tất cả cấp độ</SelectItem>
                       {logLevelOptions.map((option) => (
                         <SelectItem key={option} value={String(option)}>
                           LV {option}
@@ -2456,7 +2456,7 @@ export default function Dashboard() {
                       <ul className="list-disc space-y-1 pl-4">
                         {importFeedback.errorDetails.map((item, index) => (
                           <li key={index}>
-                            <span className="font-semibold">{(item.account as any)?.username ?? "(khong ro)"}:</span>{" "}
+                            <span className="font-semibold">{(item.account as any)?.username ?? "(không rõ)"}:</span>{" "}
                             {item.error}
                           </li>
                         ))}
