@@ -41,7 +41,7 @@ export default function ImportSection({
   const {
     importTitle = "Import chung sức",
     importButton = "Import",
-    totalLabel = "Tổng tài khoản",
+    totalLabel = "Tổng clone csuc",
     activeLabel = "Đang hoạt động",
     inactiveLabel = "Tạm dừng",
   } = labels ?? {};
