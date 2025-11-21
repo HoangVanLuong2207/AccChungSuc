@@ -766,7 +766,7 @@ function OverviewCards({
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Tổng tài khoản</CardTitle>
+          <CardTitle className="text-sm font-medium">Tổng clone csuc</CardTitle>
           <Users className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -779,7 +779,7 @@ function OverviewCards({
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Tổng acc log</CardTitle>
+          <CardTitle className="text-sm font-medium">Tổng clone chưa đủ csuc</CardTitle>
           <FileText className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -792,7 +792,7 @@ function OverviewCards({
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Sức khỏe hệ thống</CardTitle>
+          <CardTitle className="text-sm font-medium">Tổng tài khoản</CardTitle>
           <LineChart className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -2199,7 +2199,7 @@ export default function Dashboard() {
                 onPrevPage={() => handlePageChange("accounts", Math.max(1, accountPagination.currentPage - 1))}
                 onNextPage={() => handlePageChange("accounts", Math.min(accountPagination.totalPages, accountPagination.currentPage + 1))}
                 onPageSizeChange={(size) => handlePageSizeChange("accounts", size)}
-                title="Clone ~15"
+                title="Clone csuc"
                 emptyMessage={ENTITY_CONFIG.accounts.emptyMessage}
                 showTagColumn
                 onEditTag={(record) => handleOpenTagModalForAccount(record as Account)}
@@ -2255,7 +2255,7 @@ export default function Dashboard() {
                 onPrevPage={() => handlePageChange("logs", Math.max(1, logPagination.currentPage - 1))}
                 onNextPage={() => handlePageChange("logs", Math.min(logPagination.totalPages, logPagination.currentPage + 1))}
                 onPageSizeChange={(size) => handlePageSizeChange("logs", size)}
-                title="Log 20~30"
+                title="Clone <lv11"
                 emptyMessage={ENTITY_CONFIG.logs.emptyMessage}
                 showLevelColumn
                 levelFilter={logLevelFilter}
