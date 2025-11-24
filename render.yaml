@@ -5,10 +5,9 @@ services:
     region: singapore
     plan: free
     rootDir: .
-    buildCommand: npm install && npm run build
+    buildCommand: bash scripts/render-build.sh
     startCommand: npm start
     healthCheckPath: /api/accounts/stats
-    preDeployCommand: npm run db:push
     envVars:
       - key: NODE_ENV
         value: production
