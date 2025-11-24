@@ -11,6 +11,12 @@ fi
 echo "▶ Installing dependencies with npm ci"
 npm ci
 
+# Work around npm optional dependency bug missing rollup native binary on Linux
+if [ "$(uname -s)" = "Linux" ]; then
+  echo "▶ Installing @rollup/rollup-linux-x64-gnu (Render build workaround)"
+  npm install --no-save @rollup/rollup-linux-x64-gnu
+fi
+
 echo "▶ Building app"
 npm run build
 
