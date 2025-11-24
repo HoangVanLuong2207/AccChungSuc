@@ -8,6 +8,8 @@ import {
   AlertCircle,
   CalendarClock,
   CheckCircle,
+  DollarSign,
+  Download,
   Filter,
   FileText,
   LineChart,
@@ -22,6 +24,7 @@ import AccountTable from "@/components/account-table";
 import DeleteModal from "@/components/delete-modal";
 import DeleteMultipleModal from "@/components/delete-multiple-modal";
 import TeamDialog from "@/components/team-dialog";
+import SetPriceDialog from "@/components/set-price-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -36,6 +39,14 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -539,7 +550,17 @@ async function parseSheetLink(url: string) {
   return { rows, name };
 }
 
-function copyToClipboard(value: string, label: string, toast: ReturnType<typeof useToast>["toast"]) {
+function copyToClipboard(
+  value: string,
+  label: string,
+  toast: ReturnType<typeof useToast>["toast"],
+  buttonKey: string,
+  setActiveButtons?: (updater: (prev: Set<string>) => Set<string>) => void
+) {
+  if (setActiveButtons) {
+    setActiveButtons((prev) => new Set(prev).add(buttonKey));
+  }
+  
   navigator.clipboard
     .writeText(value)
     .then(() => {
@@ -554,6 +575,17 @@ function copyToClipboard(value: string, label: string, toast: ReturnType<typeof 
         description: "Trình duyệt không cho phép truy cập clipboard",
         variant: "destructive",
       });
+    })
+    .finally(() => {
+      if (setActiveButtons) {
+        setTimeout(() => {
+          setActiveButtons((prev) => {
+            const next = new Set(prev);
+            next.delete(buttonKey);
+            return next;
+          });
+        }, 1000); // Remove active state after 1 second
+      }
     });
 }
 
@@ -595,12 +627,46 @@ export default records;
   });
 }
 
+function exportRecordsTxt(
+  records: EntityRecord[],
+  prefix: string,
+  toast: ReturnType<typeof useToast>["toast"],
+  scopeLabel: string,
+) {
+  if (records.length === 0) {
+    toast({
+      title: "Không có dữ liệu",
+      description: "Vui lòng chọn ít nhất một mục",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  const fileContent = records.map(({ username, password }) => `${username}|${password}`).join("\n");
+  const blob = new Blob([fileContent], { type: "text/plain;charset=utf-8" });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  link.href = url;
+  link.download = `${prefix}-${timestamp}.txt`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+
+  toast({
+    title: "Đã xuất",
+    description: `Đã xuất ${records.length} ${scopeLabel} (TXT)`,
+  });
+}
+
 function useEntityMutations(
   entity: EntityKey,
   toast: ReturnType<typeof useToast>["toast"],
   queryClient: ReturnType<typeof useQueryClient>,
 ) {
   const config = ENTITY_CONFIG[entity];
+  const isAccountsEntity = entity === "accounts";
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: [config.listKey] });
     queryClient.invalidateQueries({ queryKey: [config.statsKey] });
@@ -612,6 +678,16 @@ function useEntityMutations(
     },
     onSuccess: (_data, status) => {
       invalidate();
+      // Invalidate revenue when turning OFF (ON → OFF: accounts đã được sử dụng xong, tính doanh thu)
+      if (!status) {
+        console.log('[Frontend] Accounts turned OFF, invalidating revenue queries');
+        queryClient.invalidateQueries({ queryKey: ["/api/revenue/current-session"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/revenue/stats"] });
+        setTimeout(() => {
+          queryClient.refetchQueries({ queryKey: ["/api/revenue/current-session"], exact: false });
+          queryClient.refetchQueries({ queryKey: ["/api/revenue/stats"], exact: false });
+        }, 800);
+      }
       toast({
         title: "Đã cập nhật",
         description: status
@@ -634,6 +710,16 @@ function useEntityMutations(
     },
     onSuccess: (_data, variables) => {
       invalidate();
+      // Invalidate revenue when turning OFF (ON → OFF: accounts đã được sử dụng xong, tính doanh thu)
+      if (!variables.status) {
+        console.log('[Frontend] Selected accounts turned OFF, invalidating revenue queries');
+        queryClient.invalidateQueries({ queryKey: ["/api/revenue/current-session"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/revenue/stats"] });
+        setTimeout(() => {
+          queryClient.refetchQueries({ queryKey: ["/api/revenue/current-session"], exact: false });
+          queryClient.refetchQueries({ queryKey: ["/api/revenue/stats"], exact: false });
+        }, 800);
+      }
       toast({
         title: "Đã cập nhật",
         description: `${variables.ids.length} ${config.label.toLowerCase()} đã được ${variables.status ? 'Bật' : 'Tắt'}`,
@@ -652,12 +738,25 @@ function useEntityMutations(
     mutationFn: async ({ id, status }: { id: number; status: boolean }) => {
       await apiRequest("PATCH", config.statusPath(id), { status });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       invalidate();
-      toast({
-        title: "Đã thay đổi trạng thái",
-        description: `${config.label} đã được cập nhật`,
-      });
+      // Invalidate revenue when turning OFF (ON → OFF: account đã được sử dụng xong, tính doanh thu)
+      if (!variables.status) {
+        console.log('[Frontend] Account turned OFF via toggle, invalidating revenue queries');
+        queryClient.invalidateQueries({ queryKey: ["/api/revenue/current-session"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/revenue/stats"] });
+        // Force refetch immediately
+        setTimeout(() => {
+          queryClient.refetchQueries({ queryKey: ["/api/revenue/current-session"], exact: false });
+          queryClient.refetchQueries({ queryKey: ["/api/revenue/stats"], exact: false });
+        }, 800);
+      }
+      if (!isAccountsEntity) {
+        toast({
+          title: "Đã thay đổi trạng thái",
+          description: `${config.label} đã được cập nhật`,
+        });
+      }
     },
     onError: () => {
       toast({
@@ -728,6 +827,7 @@ interface OverviewCardsProps {
   accounts: Account[];
   logs: AccLog[];
   lastImportSummary?: ImportSummary | null;
+  currentSessionRevenue?: { session: { sessionName: string; pricePerAccount: number } | null; revenue: { totalRevenue: number; accountCount: number } } | null;
 }
 
 function OverviewCards({
@@ -738,6 +838,7 @@ function OverviewCards({
   accounts,
   logs,
   lastImportSummary,
+  currentSessionRevenue,
 }: OverviewCardsProps) {
   const totalAccounts = accountStats?.total ?? accounts.length;
   const activeAccounts = accountStats?.active ?? accounts.filter((acc) => acc.status).length;
@@ -762,8 +863,11 @@ function OverviewCards({
         ? "Chưa gắn tag"
         : `Tag ${tagFilter}`;
 
+  // Debug log
+  console.log('[Frontend] OverviewCards rendering, currentSessionRevenue:', currentSessionRevenue);
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Tổng clone csuc</CardTitle>
@@ -829,6 +933,40 @@ function OverviewCards({
           ) : null}
         </CardContent>
       </Card>
+
+      {currentSessionRevenue?.session ? (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Doanh thu buổi live</CardTitle>
+            <DollarSign className="h-5 w-5 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">{formatNumber(currentSessionRevenue.revenue.totalRevenue)}đ</div>
+            <p className="text-sm font-medium text-card-foreground mt-1">
+              {currentSessionRevenue.session.sessionName}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatNumber(currentSessionRevenue.revenue.accountCount)} acc × {formatNumber(currentSessionRevenue.session.pricePerAccount)}đ/acc
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-dashed border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Doanh thu buổi live</CardTitle>
+            <DollarSign className="h-5 w-5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold text-muted-foreground">0đ</div>
+            <p className="text-sm text-muted-foreground mt-1">
+              Chưa có buổi live
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Set giá để bắt đầu tracking
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -944,6 +1082,101 @@ function ActivityTimeline({ data, hasActivity }: ActivityTimelineProps) {
   );
 }
 
+const REVENUE_CHART_CONFIG: ChartConfig = {
+  revenue: {
+    label: "Doanh thu",
+    theme: {
+      light: "var(--chart-1)",
+      dark: "rgba(255, 255, 255, 0.85)",
+    },
+  },
+};
+
+interface RevenueChartProps {
+  data: Array<{ date: string; revenue: number; accountCount: number }>;
+  activeSession?: { sessionName: string; pricePerAccount: number } | null;
+}
+
+function RevenueChart({ data, activeSession }: RevenueChartProps) {
+  const chartData = useMemo(() => {
+    return data.map((item) => ({
+      date: format(new Date(item.date), "dd/MM"),
+      revenue: item.revenue,
+      accountCount: item.accountCount,
+    }));
+  }, [data]);
+
+  const hasRevenue = data.length > 0 && data.some((item) => item.revenue > 0);
+  const totalRevenue = data.reduce((sum, item) => sum + item.revenue, 0);
+
+  return (
+    <Card className="h-full">
+      <CardHeader>
+        <CardTitle className="text-base font-semibold">Thống kê doanh thu</CardTitle>
+        <CardDescription>
+          {activeSession
+            ? `Buổi live hiện tại: ${activeSession.sessionName} - ${formatNumber(activeSession.pricePerAccount)}đ/acc`
+            : "Chưa có buổi live nào được set"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {hasRevenue ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-md border bg-muted/30 p-3">
+              <span className="text-sm text-muted-foreground">Tổng doanh thu 30 ngày:</span>
+              <span className="text-lg font-semibold text-primary">{formatNumber(totalRevenue)}đ</span>
+            </div>
+            <ChartContainer config={REVENUE_CHART_CONFIG} className="h-[260px] w-full overflow-hidden">
+              <AreaChart data={chartData}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/60" />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} axisLine={false} tickLine={false} width={60} />
+                <ChartTooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="rounded-lg border bg-background p-2 shadow-sm">
+                          <div className="grid gap-2">
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-sm text-muted-foreground">Doanh thu:</span>
+                              <span className="font-semibold">{formatNumber(data.revenue)}đ</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-sm text-muted-foreground">Số acc:</span>
+                              <span className="font-semibold">{data.accountCount}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="var(--color-revenue)"
+                  fillOpacity={0.28}
+                  fill="var(--color-revenue)"
+                />
+              </AreaChart>
+            </ChartContainer>
+          </div>
+        ) : (
+          <div className="flex h-[220px] flex-col items-center justify-center rounded-md border border-dashed border-border/70 text-sm text-muted-foreground">
+            <DollarSign className="mb-2 h-8 w-8" />
+            <p>Chưa có doanh thu trong 30 ngày gần nhất</p>
+            {!activeSession && (
+              <p className="mt-2 text-xs">Set giá cho buổi live để bắt đầu tracking doanh thu</p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 interface WidgetTogglePanelProps {
   state: typeof DEFAULT_WIDGET_STATE;
   onChange: (next: typeof DEFAULT_WIDGET_STATE) => void;
@@ -1010,6 +1243,8 @@ interface BulkActionsCardProps {
   onDeleteAll: () => void;
   onExportAll: () => void;
   onExportSelected: () => void;
+  onExportAllTxt?: () => void;
+  onExportSelectedTxt?: () => void;
   onAssignTag?: () => void;
   disableAssignTag?: boolean;
   disableUpdateSelected?: boolean;
@@ -1028,6 +1263,8 @@ function BulkActionsCard({
   onDeleteAll,
   onExportAll,
   onExportSelected,
+  onExportAllTxt,
+  onExportSelectedTxt,
   onAssignTag,
   disableAssignTag,
   disableUpdateSelected,
@@ -1079,12 +1316,41 @@ function BulkActionsCard({
           </Button>
         ) : null}
         <Separator />
-        <Button size="sm" variant="outline" className="w-full" onClick={onExportSelected}>
-          Xuất mục đã chọn
-        </Button>
-        <Button size="sm" variant="outline" className="w-full" onClick={onExportAll}>
-          Xuất theo bộ lọc
-        </Button>
+        <div className="relative">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="w-full">
+                <Download className="mr-2 h-4 w-4" />
+                Xuất dữ liệu
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel>Xuất mục đã chọn</DropdownMenuLabel>
+              <DropdownMenuItem onClick={onExportSelected}>
+                <FileText className="mr-2 h-4 w-4" />
+                <span>File JS</span>
+              </DropdownMenuItem>
+              {onExportSelectedTxt ? (
+                <DropdownMenuItem onClick={onExportSelectedTxt}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  <span>File TXT</span>
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Xuất theo bộ lọc</DropdownMenuLabel>
+              <DropdownMenuItem onClick={onExportAll}>
+                <FileText className="mr-2 h-4 w-4" />
+                <span>File JS</span>
+              </DropdownMenuItem>
+              {onExportAllTxt ? (
+                <DropdownMenuItem onClick={onExportAllTxt}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  <span>File TXT</span>
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <Separator />
         <Button
           size="sm"
@@ -1545,11 +1811,47 @@ export default function Dashboard() {
   const [lastImportSummary, setLastImportSummary] = useState<ImportSummary | null>(null);
   const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
   const [tagModalState, setTagModalState] = useState<TagModalState | null>(null);
+  const [isSetPriceDialogOpen, setSetPriceDialogOpen] = useState(false);
+  const [updatingStatusIds, setUpdatingStatusIds] = useState<Set<number>>(new Set());
+  const [activeCopyButtons, setActiveCopyButtons] = useState<Set<string>>(new Set());
 
   const accountsQuery = useQuery<Account[]>({ queryKey: [ENTITY_CONFIG.accounts.listKey] });
   const logsQuery = useQuery<AccLog[]>({ queryKey: [ENTITY_CONFIG.logs.listKey] });
   const accountStatsQuery = useQuery<SummaryStats | null>({ queryKey: [ENTITY_CONFIG.accounts.statsKey] });
   const logStatsQuery = useQuery<SummaryStats | null>({ queryKey: [ENTITY_CONFIG.logs.statsKey] });
+  
+  type RevenueStats = Array<{ date: string; revenue: number; accountCount: number }>;
+  const revenueStatsQuery = useQuery<RevenueStats>({
+    queryKey: ["/api/revenue/stats"],
+    queryFn: async () => {
+      const endDate = new Date();
+      const startDate = subDays(endDate, 30);
+      const params = new URLSearchParams({
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+      });
+      return apiRequest<RevenueStats>("GET", `/api/revenue/stats?${params.toString()}`);
+    },
+  });
+  
+  const activeSessionQuery = useQuery<{ id: number; sessionName: string; pricePerAccount: number; createdAt: Date; updatedAt: Date } | null>({
+    queryKey: ["/api/revenue/active-session"],
+    queryFn: async () => {
+      return apiRequest<{ id: number; sessionName: string; pricePerAccount: number; createdAt: Date; updatedAt: Date } | null>("GET", "/api/revenue/active-session");
+    },
+  });
+
+  const currentSessionRevenueQuery = useQuery<{ session: { id: number; sessionName: string; pricePerAccount: number; createdAt: Date; updatedAt: Date } | null; revenue: { totalRevenue: number; accountCount: number } }>({
+    queryKey: ["/api/revenue/current-session"],
+    queryFn: async () => {
+      const data = await apiRequest<{ session: { id: number; sessionName: string; pricePerAccount: number; createdAt: Date; updatedAt: Date } | null; revenue: { totalRevenue: number; accountCount: number } }>("GET", "/api/revenue/current-session");
+      console.log('[Frontend] Current session revenue:', data);
+      return data;
+    },
+    refetchInterval: 2000, // Refetch every 2 seconds to get updated revenue
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+  });
 
   const accountMutations = useEntityMutations("accounts", toast, queryClient);
   const logMutations = useEntityMutations("logs", toast, queryClient);
@@ -1856,8 +2158,93 @@ export default function Dashboard() {
   };
 
   const handleToggleStatus = (entity: EntityKey, record: EntityRecord) => {
+    // Check if already updating
+    if (updatingStatusIds.has(record.id)) {
+      toast({
+        title: "Đang xử lý",
+        description: "Vui lòng chờ dữ liệu được cập nhật",
+        variant: "default",
+      });
+      return;
+    }
+
+    // For accounts: require active live session before updating status
+    if (entity === "accounts") {
+      const activeSession = activeSessionQuery.data;
+      if (!activeSession) {
+        toast({
+          title: "Chưa set buổi live",
+          description: "Vui lòng set giá cho buổi live trước khi cập nhật trạng thái account. Nhấn vào nút 'Set giá' để thiết lập.",
+          variant: "destructive",
+        });
+        // Auto-open set price dialog after a short delay
+        setTimeout(() => {
+          setSetPriceDialogOpen(true);
+        }, 1000);
+        return;
+      }
+    }
+
     const mutation = entity === "accounts" ? accountMutations.toggleStatusMutation : logMutations.toggleStatusMutation;
-    mutation.mutate({ id: record.id, status: !record.status });
+    
+    // Save previous status before toggle
+    const previousStatus = record.status;
+    const newStatus = !record.status;
+    const recordLabel = record.username || `#${record.id}`;
+    const nextStatusLabel = newStatus ? "ON" : "OFF";
+    const entityLabel = entity === "accounts" ? "Tài khoản" : "Acc log";
+    
+    // Add to updating set
+    setUpdatingStatusIds((prev) => new Set(prev).add(record.id));
+    
+    // Show loading toast for this record
+    const pendingToast = toast({
+      title: "Đang cập nhật",
+      description: `${entityLabel} ${recordLabel} đang chuyển sang ${nextStatusLabel}`,
+    });
+
+    mutation.mutate(
+      { id: record.id, status: newStatus },
+      {
+        onSuccess: () => {
+          pendingToast?.update?.({
+            id: pendingToast.id,
+            title: "Đã cập nhật",
+            description: `${entityLabel} ${recordLabel} đã chuyển sang ${nextStatusLabel}`,
+          });
+          setTimeout(() => pendingToast?.dismiss?.(), 2500);
+        },
+        onError: (error) => {
+          const message = error instanceof Error ? error.message : "Không thể cập nhật";
+          pendingToast?.update?.({
+            id: pendingToast.id,
+            title: "Cập nhật thất bại",
+            description: `${entityLabel} ${recordLabel}: ${message}`,
+            variant: "destructive",
+          });
+        },
+        onSettled: () => {
+          // Remove from updating set when done
+          setUpdatingStatusIds((prev) => {
+            const next = new Set(prev);
+            next.delete(record.id);
+            return next;
+          });
+          // Invalidate revenue if turning OFF accounts (ON → OFF: account đã được sử dụng xong, tính doanh thu)
+          // Chỉ tính doanh thu cho accounts, không tính cho acclogs
+          if (entity === "accounts" && previousStatus && !newStatus) {
+            console.log('[Frontend] Account turned OFF, invalidating revenue queries');
+            queryClient.invalidateQueries({ queryKey: ["/api/revenue/current-session"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/revenue/stats"] });
+            // Force immediate refetch
+            setTimeout(() => {
+              queryClient.refetchQueries({ queryKey: ["/api/revenue/current-session"], exact: false });
+              queryClient.refetchQueries({ queryKey: ["/api/revenue/stats"], exact: false });
+            }, 800);
+          }
+        },
+      }
+    );
   };
 
   const handleDeleteRecord = (entity: EntityKey, record: EntityRecord) => {
@@ -1932,7 +2319,38 @@ export default function Dashboard() {
     exportRecords(filtered, `${config.exportPrefix}-filtered`, toast, "muc");
   };
 
+  const handleExportSelectedTxt = (entity: EntityKey) => {
+    const config = ENTITY_CONFIG[entity];
+    const records = entity === "accounts" ? accounts : logs;
+    const selectedIds = entityUi[entity].selectedIds;
+    const selectedRecords = records.filter((record) => selectedIds.includes(record.id));
+    exportRecordsTxt(selectedRecords, `${config.exportPrefix}-selected`, toast, "muc");
+  };
+
+  const handleExportFilteredTxt = (entity: EntityKey) => {
+    const config = ENTITY_CONFIG[entity];
+    const filtered = entity === "accounts" ? filteredAccounts : filteredLogs;
+    exportRecordsTxt(filtered, `${config.exportPrefix}-filtered`, toast, "muc");
+  };
+
   const handleUpdateAll = (entity: EntityKey, status: boolean) => {
+    // For accounts: require active live session before updating status
+    if (entity === "accounts") {
+      const activeSession = activeSessionQuery.data;
+      if (!activeSession) {
+        toast({
+          title: "Chưa set buổi live",
+          description: "Vui lòng set giá cho buổi live trước khi cập nhật trạng thái account. Nhấn vào nút 'Set giá' để thiết lập.",
+          variant: "destructive",
+        });
+        // Auto-open set price dialog after a short delay
+        setTimeout(() => {
+          setSetPriceDialogOpen(true);
+        }, 1000);
+        return;
+      }
+    }
+
     const mutation = entity === "accounts" ? accountMutations.updateAllMutation : logMutations.updateAllMutation;
     mutation.mutate(status);
   };
@@ -1947,6 +2365,24 @@ export default function Dashboard() {
       });
       return;
     }
+
+    // For accounts: require active live session before updating status
+    if (entity === "accounts") {
+      const activeSession = activeSessionQuery.data;
+      if (!activeSession) {
+        toast({
+          title: "Chưa set buổi live",
+          description: "Vui lòng set giá cho buổi live trước khi cập nhật trạng thái account. Nhấn vào nút 'Set giá' để thiết lập.",
+          variant: "destructive",
+        });
+        // Auto-open set price dialog after a short delay
+        setTimeout(() => {
+          setSetPriceDialogOpen(true);
+        }, 1000);
+        return;
+      }
+    }
+
     const mutation = entity === "accounts"
       ? accountMutations.updateSelectedMutation
       : logMutations.updateSelectedMutation;
@@ -2092,6 +2528,7 @@ export default function Dashboard() {
           accounts={accounts}
           logs={logs}
           lastImportSummary={lastImportSummary}
+          currentSessionRevenue={currentSessionRevenueQuery.data ?? null}
         />
 
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-border/70 bg-card/50 px-4 py-4">
@@ -2154,6 +2591,15 @@ export default function Dashboard() {
               <UploadCloud className="h-4 w-4" />
               Trợ lý import
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setSetPriceDialogOpen(true)}
+            >
+              <DollarSign className="h-4 w-4" />
+              Set giá live
+            </Button>
           </div>
         </div>
 
@@ -2180,10 +2626,16 @@ export default function Dashboard() {
                 statusFilter={entityUi.accounts.statusFilter}
                 onSearchChange={(value) => handleSearchChange("accounts", value)}
                 onStatusFilterChange={(value) => handleStatusFilterChange("accounts", value)}
-                onCopyUsername={(username) => copyToClipboard(username, "Username", toast)}
-                onCopyPassword={(password) => copyToClipboard(password, "Password", toast)}
+                onCopyUsername={(username, accountId) => {
+                  copyToClipboard(username, "Username", toast, `username-${accountId}`, setActiveCopyButtons);
+                }}
+                onCopyPassword={(password, accountId) => {
+                  copyToClipboard(password, "Password", toast, `password-${accountId}`, setActiveCopyButtons);
+                }}
                 onToggleStatus={(record) => handleToggleStatus("accounts", record)}
                 onDeleteClick={(record) => handleDeleteRecord("accounts", record)}
+                updatingStatusIds={updatingStatusIds}
+                activeCopyButtons={activeCopyButtons}
                 selectedAccounts={entityUi.accounts.selectedIds}
                 onSelectedAccountsChange={(ids) => handleSelectedChange("accounts", ids)}
                 onDeleteSelected={() => handleDeleteSelected("accounts")}
@@ -2219,6 +2671,8 @@ export default function Dashboard() {
                   onDeleteAll={() => handleDeleteAll("accounts")}
                   onExportAll={() => handleExportFiltered("accounts")}
                   onExportSelected={() => handleExportSelected("accounts")}
+                  onExportAllTxt={() => handleExportFilteredTxt("accounts")}
+                  onExportSelectedTxt={() => handleExportSelectedTxt("accounts")}
                   onAssignTag={handleOpenTagModalForSelection}
                   disableAssignTag={entityUi.accounts.selectedIds.length === 0}
                   disableDeleteSelected={entityUi.accounts.selectedIds.length === 0}
@@ -2236,10 +2690,16 @@ export default function Dashboard() {
                 statusFilter={entityUi.logs.statusFilter}
                 onSearchChange={(value) => handleSearchChange("logs", value)}
                 onStatusFilterChange={(value) => handleStatusFilterChange("logs", value)}
-                onCopyUsername={(username) => copyToClipboard(username, "Username", toast)}
-                onCopyPassword={(password) => copyToClipboard(password, "Password", toast)}
+                onCopyUsername={(username, accountId) => {
+                  copyToClipboard(username, "Username", toast, `username-${accountId}`, setActiveCopyButtons);
+                }}
+                onCopyPassword={(password, accountId) => {
+                  copyToClipboard(password, "Password", toast, `password-${accountId}`, setActiveCopyButtons);
+                }}
                 onToggleStatus={(record) => handleToggleStatus("logs", record)}
                 onDeleteClick={(record) => handleDeleteRecord("logs", record)}
+                updatingStatusIds={updatingStatusIds}
+                activeCopyButtons={activeCopyButtons}
                 selectedAccounts={entityUi.logs.selectedIds}
                 onSelectedAccountsChange={(ids) => handleSelectedChange("logs", ids)}
                 onDeleteSelected={() => handleDeleteSelected("logs")}
@@ -2277,6 +2737,8 @@ export default function Dashboard() {
                   onDeleteAll={() => handleDeleteAll("logs")}
                   onExportAll={() => handleExportFiltered("logs")}
                   onExportSelected={() => handleExportSelected("logs")}
+                  onExportAllTxt={() => handleExportFilteredTxt("logs")}
+                  onExportSelectedTxt={() => handleExportSelectedTxt("logs")}
                   disableDeleteSelected={entityUi.logs.selectedIds.length === 0}
                 />
               </div>
@@ -2375,7 +2837,7 @@ export default function Dashboard() {
           <DialogContent className="sm:max-w-5xl border border-border/60 bg-[#EEEEEE] text-gray-900 shadow-lg backdrop-blur dark:bg-neutral-900 dark:text-gray-100">
             <DialogHeader>
               <DialogTitle>Biểu đồ thống kê</DialogTitle>
-              <DialogDescription>Quan sát trạng thái và hoạt động gần đây.</DialogDescription>
+              <DialogDescription>Quan sát trạng thái, hoạt động và doanh thu gần đây.</DialogDescription>
             </DialogHeader>
             {canShowCharts ? (
               <div className="grid gap-6 lg:grid-cols-2">
@@ -2391,6 +2853,12 @@ export default function Dashboard() {
                 Biểu đồ đang bị tắt trong phần tùy chỉnh widget.
               </p>
             )}
+            <div className="mt-6">
+              <RevenueChart
+                data={revenueStatsQuery.data ?? []}
+                activeSession={activeSessionQuery.data ?? null}
+              />
+            </div>
           </DialogContent>
         </Dialog>
 
@@ -2489,6 +2957,7 @@ export default function Dashboard() {
         }}
         onSave={handleTagSave}
       />
+      <SetPriceDialog open={isSetPriceDialogOpen} onOpenChange={setSetPriceDialogOpen} />
     </div>
   );
 }
