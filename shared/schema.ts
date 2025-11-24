@@ -74,3 +74,45 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+export const liveSessions = pgTable("live_sessions", {
+  id: serial("id").primaryKey(),
+  sessionName: text("session_name").notNull(),
+  pricePerAccount: integer("price_per_account").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertLiveSessionSchema = createInsertSchema(liveSessions).pick({
+  sessionName: true,
+  pricePerAccount: true,
+}).extend({
+  pricePerAccount: z.coerce.number().int().min(0),
+});
+
+export type InsertLiveSession = z.infer<typeof insertLiveSessionSchema>;
+export type LiveSession = typeof liveSessions.$inferSelect;
+
+export const revenueRecords = pgTable("revenue_records", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").references(() => liveSessions.id),
+  accountId: integer("account_id").references(() => accounts.id).notNull(),
+  pricePerAccount: integer("price_per_account").notNull(),
+  revenue: integer("revenue").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertRevenueRecordSchema = createInsertSchema(revenueRecords).pick({
+  sessionId: true,
+  accountId: true,
+  pricePerAccount: true,
+  revenue: true,
+}).extend({
+  sessionId: z.number().int().positive().nullable(),
+  accountId: z.number().int().positive(),
+  pricePerAccount: z.coerce.number().int().min(0),
+  revenue: z.coerce.number().int().min(0),
+});
+
+export type InsertRevenueRecord = z.infer<typeof insertRevenueRecordSchema>;
+export type RevenueRecord = typeof revenueRecords.$inferSelect;
+

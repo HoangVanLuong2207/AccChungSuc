@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertAccountSchema, updateAccountSchema, updateAccountTagSchema, insertUserSchema, insertAccLogSchema, updateAccLogSchema } from "@shared/schema";
+import { insertAccountSchema, updateAccountSchema, updateAccountTagSchema, insertUserSchema, insertAccLogSchema, updateAccLogSchema, insertLiveSessionSchema } from "@shared/schema";
 import { isAuthenticated } from "./auth";
 import bcrypt from "bcrypt";
 import multer from "multer";
@@ -117,7 +117,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/accounts/status-all", isAuthenticated, async (req, res) => {
     try {
       const body = z.object({ status: z.boolean() }).parse(req.body);
+      
+      // Get current accounts to check previous status
+      const allAccounts = await storage.getAllAccounts();
+      
       const updatedCount = await storage.updateAllAccountStatuses(body.status);
+      
+      // Track revenue when accounts change from ON to OFF (accounts đã được sử dụng xong)
+      if (body.status === false) {
+        try {
+          const activeSession = await storage.getActiveLiveSession();
+          if (activeSession) {
+            // Get accounts that were ON before update (they will be turned OFF)
+            const accountsThatChangedFromOnToOff = allAccounts.filter(
+              (acc) => acc.status === true // Was ON before update
+            );
+            
+            console.log(`[Revenue] Updating ${accountsThatChangedFromOnToOff.length} accounts from ON to OFF, session ${activeSession.id}, price ${activeSession.pricePerAccount}`);
+            
+            for (const account of accountsThatChangedFromOnToOff) {
+              const revenueRecord = await storage.createRevenueRecord({
+                sessionId: activeSession.id,
+                accountId: account.id,
+                pricePerAccount: activeSession.pricePerAccount,
+                revenue: activeSession.pricePerAccount,
+              });
+              console.log(`[Revenue] Created revenue record for account ${account.id}:`, revenueRecord);
+            }
+          } else {
+            console.log(`[Revenue] No active session found for bulk update`);
+          }
+        } catch (revenueError) {
+          console.error('[Revenue] Error tracking revenue:', revenueError);
+          // Don't fail the request if revenue tracking fails
+        }
+      }
+      
       res.json({ updated: updatedCount, status: body.status });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -135,7 +170,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: z.boolean(),
         })
         .parse(req.body);
+      
+      // Get current accounts to check previous status
+      const allAccounts = await storage.getAllAccounts();
+      const accountsToUpdate = allAccounts.filter((acc) => body.ids.includes(acc.id));
+      
       const updatedCount = await storage.updateSelectedAccountStatuses(body.ids, body.status);
+      
+      // Track revenue when accounts change from ON to OFF (accounts đã được sử dụng xong)
+      if (body.status === false) {
+        try {
+          const activeSession = await storage.getActiveLiveSession();
+          if (activeSession) {
+            const accountsThatChangedFromOnToOff = accountsToUpdate.filter(
+              (acc) => acc.status && !body.status
+            );
+            
+            console.log(`[Revenue] Updating ${accountsThatChangedFromOnToOff.length} selected accounts from ON to OFF, session ${activeSession.id}, price ${activeSession.pricePerAccount}`);
+            
+            for (const account of accountsThatChangedFromOnToOff) {
+              const revenueRecord = await storage.createRevenueRecord({
+                sessionId: activeSession.id,
+                accountId: account.id,
+                pricePerAccount: activeSession.pricePerAccount,
+                revenue: activeSession.pricePerAccount,
+              });
+              console.log(`[Revenue] Created revenue record for account ${account.id}:`, revenueRecord);
+            }
+          } else {
+            console.log(`[Revenue] No active session found for selected update`);
+          }
+        } catch (revenueError) {
+          console.error('[Revenue] Error tracking revenue:', revenueError);
+          // Don't fail the request if revenue tracking fails
+        }
+      }
+      
       res.json({ updated: updatedCount, status: body.status });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -194,10 +264,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { status } = updateAccountSchema.parse(req.body);
+      
+      // Get current account to check previous status
+      const accounts = await storage.getAllAccounts();
+      const currentAccount = accounts.find((acc) => acc.id === id);
+      
+      if (!currentAccount) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+
+      const previousStatus = currentAccount.status;
       const account = await storage.updateAccountStatus(id, status!);
       
       if (!account) {
         return res.status(404).json({ message: "Account not found" });
+      }
+
+      // Track revenue when account changes from ON to OFF (account đã được sử dụng xong)
+      if (previousStatus && !status) {
+        try {
+          const activeSession = await storage.getActiveLiveSession();
+          if (activeSession) {
+            console.log(`[Revenue] Creating revenue record for account ${account.id}, session ${activeSession.id}, price ${activeSession.pricePerAccount}`);
+            const revenueRecord = await storage.createRevenueRecord({
+              sessionId: activeSession.id,
+              accountId: account.id,
+              pricePerAccount: activeSession.pricePerAccount,
+              revenue: activeSession.pricePerAccount,
+            });
+            console.log(`[Revenue] Created revenue record:`, revenueRecord);
+          } else {
+            console.log(`[Revenue] No active session found for account ${account.id}`);
+          }
+        } catch (revenueError) {
+          console.error('[Revenue] Error tracking revenue:', revenueError);
+          // Don't fail the request if revenue tracking fails
+        }
       }
       
       res.json(account);
@@ -593,6 +695,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch accLog statistics" });
+    }
+  });
+
+  // Revenue tracking routes
+  app.post("/api/revenue/set-price", isAuthenticated, async (req, res) => {
+    try {
+      console.log('POST /api/revenue/set-price - Request body:', req.body);
+      const body = insertLiveSessionSchema.parse(req.body);
+      console.log('Parsed body:', body);
+      const session = await storage.createLiveSession(body);
+      console.log('Created session:', session);
+      return res.status(201).json(session);
+    } catch (error) {
+      console.error('Error in /api/revenue/set-price:', error);
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
+      
+      // Ensure we always return JSON
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid data", 
+          errors: error.errors,
+          details: error.message 
+        });
+      }
+      
+      const errorMessage = error instanceof Error ? error.message : "Failed to create live session";
+      const errorDetails = error instanceof Error ? error.stack : undefined;
+      
+      return res.status(500).json({ 
+        message: errorMessage,
+        details: errorDetails 
+      });
+    }
+  });
+
+  app.get("/api/revenue/sessions", isAuthenticated, async (req, res) => {
+    try {
+      const sessions = await storage.getAllLiveSessions();
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch live sessions" });
+    }
+  });
+
+  app.get("/api/revenue/active-session", isAuthenticated, async (req, res) => {
+    try {
+      const session = await storage.getActiveLiveSession();
+      res.json(session || null);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch active session" });
+    }
+  });
+
+  app.get("/api/revenue/stats", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate } = z.object({
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      }).parse(req.query);
+
+      const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default: 30 days ago
+      const end = endDate ? new Date(endDate) : new Date();
+
+      const stats = await storage.getRevenueStatsByDate(start, end);
+      res.json(stats);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to fetch revenue stats" });
+      }
+    }
+  });
+
+  app.get("/api/revenue/current-session", isAuthenticated, async (req, res) => {
+    try {
+      const session = await storage.getActiveLiveSession();
+      if (!session) {
+        console.log('[Revenue] No active session found');
+        return res.json({ session: null, revenue: { totalRevenue: 0, accountCount: 0 } });
+      }
+
+      const revenue = await storage.getCurrentSessionRevenue(session.id);
+      console.log(`[Revenue] Current session revenue for session ${session.id} (${session.sessionName}):`, revenue);
+      console.log(`[Revenue] Session details:`, { id: session.id, sessionName: session.sessionName, pricePerAccount: session.pricePerAccount });
+      
+      // Ensure we return the correct structure
+      const response = { 
+        session: {
+          id: session.id,
+          sessionName: session.sessionName,
+          pricePerAccount: session.pricePerAccount,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+        },
+        revenue: {
+          totalRevenue: revenue.totalRevenue || 0,
+          accountCount: revenue.accountCount || 0,
+        }
+      };
+      
+      console.log(`[Revenue] Response:`, response);
+      res.json(response);
+    } catch (error) {
+      console.error('[Revenue] Error in /api/revenue/current-session:', error);
+      res.status(500).json({ message: "Failed to fetch current session revenue" });
     }
   });
 

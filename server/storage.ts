@@ -1,7 +1,7 @@
-import { accounts, accLogs, users, type Account, type InsertAccount, type User, type AccLog, type InsertAccLog } from "@shared/schema";
+import { accounts, accLogs, users, liveSessions, revenueRecords, type Account, type InsertAccount, type User, type AccLog, type InsertAccLog, type LiveSession, type InsertLiveSession, type RevenueRecord, type InsertRevenueRecord } from "@shared/schema";
 import { db } from "./db";
 import { randomUUID } from "crypto";
-import { eq, sql, inArray } from "drizzle-orm";
+import { eq, sql, inArray, desc, and, gte, lte } from "drizzle-orm";
 
 const ensureLevelColumnsPromise = (async () => {
   try {
@@ -20,6 +20,37 @@ const ensureLevelColumnsPromise = (async () => {
     await db.execute(sql`ALTER TABLE accounts ALTER COLUMN "lv" SET NOT NULL`);
   } catch (error) {
     console.error('Error ensuring lv column on accounts:', error);
+  }
+
+  // Create live_sessions table if not exists
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS live_sessions (
+        id SERIAL PRIMARY KEY,
+        session_name TEXT NOT NULL,
+        price_per_account INTEGER NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+  } catch (error) {
+    console.error('Error ensuring live_sessions table:', error);
+  }
+
+  // Create revenue_records table if not exists
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS revenue_records (
+        id SERIAL PRIMARY KEY,
+        session_id INTEGER REFERENCES live_sessions(id),
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        price_per_account INTEGER NOT NULL,
+        revenue INTEGER NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+  } catch (error) {
+    console.error('Error ensuring revenue_records table:', error);
   }
 })();
 
@@ -47,14 +78,26 @@ interface IStorage {
   updateSelectedAccLogStatuses(ids: number[], status: boolean): Promise<number>;
 
   getUserByUsername(username: string): Promise<User | undefined>;
+
+  // Revenue tracking methods
+  createLiveSession(session: InsertLiveSession): Promise<LiveSession>;
+  getActiveLiveSession(): Promise<LiveSession | undefined>;
+  getAllLiveSessions(): Promise<LiveSession[]>;
+  createRevenueRecord(record: InsertRevenueRecord): Promise<RevenueRecord>;
+  getRevenueStatsByDate(startDate: Date, endDate: Date): Promise<Array<{ date: string; revenue: number; accountCount: number }>>;
+  getCurrentSessionRevenue(sessionId: number): Promise<{ totalRevenue: number; accountCount: number }>;
 }
 
 export class MemoryStorage implements IStorage {
   private accountsData: Account[] = [];
   private accLogsData: AccLog[] = [];
   private usersData: User[] = [];
+  private liveSessionsData: LiveSession[] = [];
+  private revenueRecordsData: RevenueRecord[] = [];
   private accountIdCounter = 1;
   private accLogIdCounter = 1;
+  private liveSessionIdCounter = 1;
+  private revenueRecordIdCounter = 1;
 
   constructor() {
     const defaultPasswordHash = process.env.DEFAULT_DEV_PASSWORD_HASH || "$2b$10$ffqH24cGGzdQktYCPpquTuethITLFKoR33KCH36Si9f4q/r6/IMcG";
@@ -244,6 +287,74 @@ export class MemoryStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     return this.usersData.find((user) => user.username === username);
+  }
+
+  async createLiveSession(session: InsertLiveSession): Promise<LiveSession> {
+    const liveSession: LiveSession = {
+      id: this.liveSessionIdCounter++,
+      sessionName: session.sessionName,
+      pricePerAccount: session.pricePerAccount,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.liveSessionsData.push(liveSession);
+    return liveSession;
+  }
+
+  async getActiveLiveSession(): Promise<LiveSession | undefined> {
+    // Get the most recent session
+    return this.liveSessionsData.length > 0
+      ? this.liveSessionsData[this.liveSessionsData.length - 1]
+      : undefined;
+  }
+
+  async getAllLiveSessions(): Promise<LiveSession[]> {
+    return [...this.liveSessionsData];
+  }
+
+  async createRevenueRecord(record: InsertRevenueRecord): Promise<RevenueRecord> {
+    const revenueRecord: RevenueRecord = {
+      id: this.revenueRecordIdCounter++,
+      sessionId: record.sessionId,
+      accountId: record.accountId,
+      pricePerAccount: record.pricePerAccount,
+      revenue: record.revenue,
+      createdAt: new Date(),
+    };
+    this.revenueRecordsData.push(revenueRecord);
+    return revenueRecord;
+  }
+
+  async getRevenueStatsByDate(startDate: Date, endDate: Date): Promise<Array<{ date: string; revenue: number; accountCount: number }>> {
+    const filtered = this.revenueRecordsData.filter(
+      (record) => record.createdAt >= startDate && record.createdAt <= endDate
+    );
+
+    const statsByDate = new Map<string, { revenue: number; accountCount: number }>();
+
+    filtered.forEach((record) => {
+      const dateKey = record.createdAt.toISOString().split('T')[0];
+      const existing = statsByDate.get(dateKey) || { revenue: 0, accountCount: 0 };
+      statsByDate.set(dateKey, {
+        revenue: existing.revenue + record.revenue,
+        accountCount: existing.accountCount + 1,
+      });
+    });
+
+    return Array.from(statsByDate.entries())
+      .map(([date, stats]) => ({ date, ...stats }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  async getCurrentSessionRevenue(sessionId: number): Promise<{ totalRevenue: number; accountCount: number }> {
+    const filtered = this.revenueRecordsData.filter(
+      (record) => record.sessionId === sessionId
+    );
+
+    const totalRevenue = filtered.reduce((sum, record) => sum + record.revenue, 0);
+    const accountCount = filtered.length;
+
+    return { totalRevenue, accountCount };
   }
 }
 
@@ -576,6 +687,126 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error in getUserByUsername:', error);
       throw new Error('Failed to fetch user from database');
+    }
+  }
+
+  async createLiveSession(session: InsertLiveSession): Promise<LiveSession> {
+    await this.ensureSchema();
+    try {
+      console.log('Creating live session with data:', session);
+      const [liveSession] = await db
+        .insert(liveSessions)
+        .values({
+          sessionName: session.sessionName,
+          pricePerAccount: session.pricePerAccount,
+          updatedAt: new Date(),
+        })
+        .returning();
+      console.log('Created live session:', liveSession);
+      return liveSession;
+    } catch (error) {
+      console.error('Error in createLiveSession:', error);
+      console.error('Error details:', error instanceof Error ? error.stack : error);
+      
+      // Check if it's a table doesn't exist error
+      if (error instanceof Error && error.message.includes('does not exist')) {
+        throw new Error('Database table chưa được tạo. Vui lòng restart server để tạo tables tự động.');
+      }
+      
+      throw new Error(`Failed to create live session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async getActiveLiveSession(): Promise<LiveSession | undefined> {
+    await this.ensureSchema();
+    try {
+      const [session] = await db
+        .select()
+        .from(liveSessions)
+        .orderBy(desc(liveSessions.createdAt))
+        .limit(1);
+      return session;
+    } catch (error) {
+      console.error('Error in getActiveLiveSession:', error);
+      throw new Error('Failed to fetch active live session from database');
+    }
+  }
+
+  async getAllLiveSessions(): Promise<LiveSession[]> {
+    await this.ensureSchema();
+    try {
+      return await db
+        .select()
+        .from(liveSessions)
+        .orderBy(desc(liveSessions.createdAt));
+    } catch (error) {
+      console.error('Error in getAllLiveSessions:', error);
+      throw new Error('Failed to fetch live sessions from database');
+    }
+  }
+
+  async createRevenueRecord(record: InsertRevenueRecord): Promise<RevenueRecord> {
+    await this.ensureSchema();
+    try {
+      const [revenueRecord] = await db
+        .insert(revenueRecords)
+        .values(record)
+        .returning();
+      return revenueRecord;
+    } catch (error) {
+      console.error('Error in createRevenueRecord:', error);
+      throw new Error('Failed to create revenue record in database');
+    }
+  }
+
+  async getRevenueStatsByDate(startDate: Date, endDate: Date): Promise<Array<{ date: string; revenue: number; accountCount: number }>> {
+    await this.ensureSchema();
+    try {
+      const results = await db
+        .select({
+          date: sql<string>`DATE(${revenueRecords.createdAt})`,
+          revenue: sql<number>`SUM(${revenueRecords.revenue})`,
+          accountCount: sql<number>`COUNT(*)`,
+        })
+        .from(revenueRecords)
+        .where(
+          and(
+            gte(revenueRecords.createdAt, startDate),
+            lte(revenueRecords.createdAt, endDate)
+          )
+        )
+        .groupBy(sql`DATE(${revenueRecords.createdAt})`)
+        .orderBy(sql`DATE(${revenueRecords.createdAt})`);
+
+      return results.map((row) => ({
+        date: row.date,
+        revenue: Number(row.revenue) || 0,
+        accountCount: Number(row.accountCount) || 0,
+      }));
+    } catch (error) {
+      console.error('Error in getRevenueStatsByDate:', error);
+      throw new Error('Failed to fetch revenue stats from database');
+    }
+  }
+
+  async getCurrentSessionRevenue(sessionId: number): Promise<{ totalRevenue: number; accountCount: number }> {
+    await this.ensureSchema();
+    try {
+      const [result] = await db
+        .select({
+          totalRevenue: sql<number>`COALESCE(SUM(${revenueRecords.revenue}), 0)`,
+          accountCount: sql<number>`COUNT(*)`,
+        })
+        .from(revenueRecords)
+        .where(eq(revenueRecords.sessionId, sessionId));
+
+      return {
+        totalRevenue: Number(result?.totalRevenue) || 0,
+        accountCount: Number(result?.accountCount) || 0,
+      };
+    } catch (error) {
+      console.error('Error in getCurrentSessionRevenue:', error);
+      throw new Error('Failed to fetch current session revenue from database');
     }
   }
 }

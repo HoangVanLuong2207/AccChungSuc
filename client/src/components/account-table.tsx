@@ -17,8 +17,8 @@ interface AccountTableProps {
   selectedAccounts: number[];
   onSearchChange: (value: string) => void;
   onStatusFilterChange: (value: "all" | "on" | "off") => void;
-  onCopyUsername: (username: string) => void;
-  onCopyPassword: (password: string) => void;
+  onCopyUsername: (username: string, accountId: number) => void;
+  onCopyPassword: (password: string, accountId: number) => void;
   onToggleStatus: (account: AccountLike) => void;
   onDeleteClick: (account: AccountLike) => void;
   onSelectedAccountsChange: (selectedIds: number[]) => void;
@@ -43,6 +43,8 @@ interface AccountTableProps {
   levelOptions?: number[];
   onLevelFilterChange?: (value: string) => void;
   onEditTag?: (account: AccountLike) => void;
+  updatingStatusIds?: Set<number>;
+  activeCopyButtons?: Set<string>;
 }
 
 
@@ -90,6 +92,8 @@ export default function AccountTable({
   levelOptions = [],
   onLevelFilterChange,
   onEditTag,
+  updatingStatusIds = new Set(),
+  activeCopyButtons = new Set(),
 }: AccountTableProps) {
   const currentPageIds = accounts.map((acc) => acc.id);
 
@@ -301,33 +305,46 @@ export default function AccountTable({
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-9 w-9 rounded-full border-primary/40 text-primary hover:bg-primary/10"
-                            onClick={() => onCopyUsername(account.username)}
+                            className={`h-9 w-9 rounded-full transition-all duration-200 ${
+                              activeCopyButtons.has(`username-${account.id}`)
+                                ? "border-primary text-primary bg-primary/20 shadow-md border-2 font-bold"
+                                : "border-primary/40 text-primary/70 hover:bg-primary/10 hover:border-primary/60 hover:text-primary"
+                            }`}
+                            onClick={() => onCopyUsername(account.username, account.id)}
                             data-testid={`button-copy-username-${account.id}`}
                           >
-                            <Copy className="h-4 w-4" />
+                            <Copy className={`h-4 w-4 ${activeCopyButtons.has(`username-${account.id}`) ? "scale-110" : ""}`} />
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-9 w-9 rounded-full border-primary/40 text-primary hover:bg-primary/10"
-                            onClick={() => onCopyPassword(account.password)}
+                            className={`h-9 w-9 rounded-full transition-all duration-200 ${
+                              activeCopyButtons.has(`password-${account.id}`)
+                                ? "border-primary text-primary bg-primary/20 shadow-md border-2 font-bold"
+                                : "border-primary/40 text-primary/70 hover:bg-primary/10 hover:border-primary/60 hover:text-primary"
+                            }`}
+                            onClick={() => onCopyPassword(account.password, account.id)}
                             data-testid={`button-copy-password-${account.id}`}
                           >
-                            <Key className="h-4 w-4" />
+                            <Key className={`h-4 w-4 ${activeCopyButtons.has(`password-${account.id}`) ? "scale-110" : ""}`} />
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            className={`h-9 w-9 rounded-full ${
-                              account.status
-                                ? "border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10"
-                                : "border-amber-500/40 text-amber-600 hover:bg-amber-500/10"
+                            className={`h-9 w-9 rounded-full transition-all duration-200 ${
+                              updatingStatusIds.has(account.id)
+                                ? account.status
+                                  ? "border-emerald-600 text-emerald-700 bg-emerald-500/30 shadow-md border-2 font-bold"
+                                  : "border-amber-600 text-amber-700 bg-amber-500/30 shadow-md border-2 font-bold"
+                                : account.status
+                                  ? "border-emerald-500/40 text-emerald-600/70 hover:bg-emerald-500/10 hover:border-emerald-500/60 hover:text-emerald-600"
+                                  : "border-amber-500/40 text-amber-600/70 hover:bg-amber-500/10 hover:border-amber-500/60 hover:text-amber-600"
                             }`}
                             onClick={() => onToggleStatus(account)}
+                            disabled={updatingStatusIds.has(account.id)}
                             data-testid={`button-toggle-status-${account.id}`}
                           >
-                            {account.status ? <Check className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                            {account.status ? <Check className={`h-4 w-4 ${updatingStatusIds.has(account.id) ? "scale-110" : ""}`} /> : <Power className={`h-4 w-4 ${updatingStatusIds.has(account.id) ? "scale-110" : ""}`} />}
                           </Button>
                           <Button
                             size="sm"
@@ -412,35 +429,48 @@ export default function AccountTable({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-10 rounded-2xl border-primary/40 text-sm text-primary hover:bg-primary/10"
-                      onClick={() => onCopyUsername(account.username)}
+                      className={`h-10 rounded-2xl text-sm font-medium transition-all duration-200 ${
+                        activeCopyButtons.has(`username-${account.id}`)
+                          ? "border-primary text-primary bg-primary/20 shadow-md border-2"
+                          : "border-primary/40 text-primary/70 hover:bg-primary/10 hover:border-primary/60 hover:text-primary"
+                      }`}
+                      onClick={() => onCopyUsername(account.username, account.id)}
                       data-testid={`button-copy-username-${account.id}`}
                     >
-                      <Copy className="mr-2 h-4 w-4" />
+                      <Copy className={`mr-2 h-4 w-4 ${activeCopyButtons.has(`username-${account.id}`) ? "scale-110" : ""}`} />
                       Copy user
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-10 rounded-2xl border-primary/40 text-sm text-primary hover:bg-primary/10"
-                      onClick={() => onCopyPassword(account.password)}
+                      className={`h-10 rounded-2xl text-sm font-medium transition-all duration-200 ${
+                        activeCopyButtons.has(`password-${account.id}`)
+                          ? "border-primary text-primary bg-primary/20 shadow-md border-2"
+                          : "border-primary/40 text-primary/70 hover:bg-primary/10 hover:border-primary/60 hover:text-primary"
+                      }`}
+                      onClick={() => onCopyPassword(account.password, account.id)}
                       data-testid={`button-copy-password-${account.id}`}
                     >
-                      <Key className="mr-2 h-4 w-4" />
+                      <Key className={`mr-2 h-4 w-4 ${activeCopyButtons.has(`password-${account.id}`) ? "scale-110" : ""}`} />
                       Copy pass
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      className={`h-10 rounded-2xl text-sm ${
-                        account.status
-                          ? "border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10"
-                          : "border-amber-500/40 text-amber-600 hover:bg-amber-500/10"
+                      className={`h-10 rounded-2xl text-sm font-medium transition-all duration-200 ${
+                        updatingStatusIds.has(account.id)
+                          ? account.status
+                            ? "border-emerald-600 text-emerald-700 bg-emerald-500/30 shadow-md border-2"
+                            : "border-amber-600 text-amber-700 bg-amber-500/30 shadow-md border-2"
+                          : account.status
+                            ? "border-emerald-500/40 text-emerald-600/70 hover:bg-emerald-500/10 hover:border-emerald-500/60 hover:text-emerald-600"
+                            : "border-amber-500/40 text-amber-600/70 hover:bg-amber-500/10 hover:border-amber-500/60 hover:text-amber-600"
                       }`}
                       onClick={() => onToggleStatus(account)}
+                      disabled={updatingStatusIds.has(account.id)}
                       data-testid={`button-toggle-status-${account.id}`}
                     >
-                      {account.status ? "OFF tài khoản" : "OFF tài khoản"}
+                      {updatingStatusIds.has(account.id) ? "Đang cập nhật..." : (account.status ? "OFF tài khoản" : "ON tài khoản")}
                     </Button>
                     <Button
                       variant="destructive"
