@@ -156,6 +156,7 @@ const DATE_FILTERS: Array<{ key: DateFilterKey; label: string; hint: string }> =
 const DEFAULT_WIDGET_STATE = {
   statusChart: true,
   activityTimeline: true,
+  revenueChart: true,
   importAssistant: true,
 };
 
@@ -1208,6 +1209,14 @@ function WidgetTogglePanel({ state, onChange, layout = "card" }: WidgetTogglePan
       <Separator />
       <div className="flex items-center justify-between">
         <div>
+          <p className="text-sm font-medium">Biểu đồ doanh thu</p>
+          <p className="text-xs text-muted-foreground">Theo dõi 30 ngày gần nhất</p>
+        </div>
+        <Switch checked={state.revenueChart} onCheckedChange={(value) => handleToggle("revenueChart", value)} />
+      </div>
+      <Separator />
+      <div className="flex items-center justify-between">
+        <div>
           <p className="text-sm font-medium">Trợ lý import</p>
           <p className="text-xs text-muted-foreground">Hướng dẫn chuẩn hoá & nhập dữ liệu</p>
         </div>
@@ -1797,7 +1806,14 @@ export default function Dashboard() {
   }, [searchParams]);
 
   const [dateFilter, setDateFilter] = useState<DateFilterKey>("all");
-  const [widgetState, setWidgetState] = useLocalStorage("dashboard-widget-state", DEFAULT_WIDGET_STATE);
+  const [storedWidgetState, setWidgetState] = useLocalStorage("dashboard-widget-state", DEFAULT_WIDGET_STATE);
+  const widgetState = useMemo(
+    () => ({
+      ...DEFAULT_WIDGET_STATE,
+      ...storedWidgetState,
+    }),
+    [storedWidgetState]
+  );
   const [isFilterDialogOpen, setFilterDialogOpen] = useState(false);
   const [isWidgetDialogOpen, setWidgetDialogOpen] = useState(false);
   const [isChartsDialogOpen, setChartsDialogOpen] = useState(false);
@@ -2035,14 +2051,15 @@ export default function Dashboard() {
     : null;
   const levelFilterLabel = activeTab === "logs" && logLevelFilter !== "all" ? `LV ${logLevelFilter}` : null;
   const isFilterDefault = dateFilter === "all" && accountTagFilter === "all" && logLevelFilter === "all";
-  const canShowCharts = widgetState.statusChart || widgetState.activityTimeline;
+  const canShowSummaryCharts = widgetState.statusChart || widgetState.activityTimeline;
+  const canShowAnyChart = canShowSummaryCharts || widgetState.revenueChart;
   const canShowImportAssistant = widgetState.importAssistant;
 
   useEffect(() => {
-    if (!canShowCharts) {
+    if (!canShowAnyChart) {
       setChartsDialogOpen(false);
     }
-  }, [canShowCharts]);
+  }, [canShowAnyChart]);
 
   useEffect(() => {
     if (!canShowImportAssistant) {
@@ -2576,7 +2593,7 @@ export default function Dashboard() {
               size="sm"
               className="gap-2"
               onClick={() => setChartsDialogOpen(true)}
-              disabled={!canShowCharts}
+              disabled={!canShowAnyChart}
             >
               <LineChart className="h-4 w-4" />
               Biểu đồ
@@ -2834,12 +2851,12 @@ export default function Dashboard() {
         </Dialog>
 
         <Dialog open={isChartsDialogOpen} onOpenChange={setChartsDialogOpen}>
-          <DialogContent className="sm:max-w-5xl border border-border/60 bg-[#EEEEEE] text-gray-900 shadow-lg backdrop-blur dark:bg-neutral-900 dark:text-gray-100">
+          <DialogContent className="w-full max-w-[95vw] max-h-[90vh] overflow-y-auto border border-border/60 bg-[#EEEEEE] text-gray-900 shadow-lg backdrop-blur dark:bg-neutral-900 dark:text-gray-100 sm:max-w-[85vw] lg:max-w-5xl xl:max-w-6xl">
             <DialogHeader>
               <DialogTitle>Biểu đồ thống kê</DialogTitle>
               <DialogDescription>Quan sát trạng thái, hoạt động và doanh thu gần đây.</DialogDescription>
             </DialogHeader>
-            {canShowCharts ? (
+            {canShowSummaryCharts ? (
               <div className="grid gap-6 lg:grid-cols-2">
                 {widgetState.statusChart ? (
                   <StatusBreakdownChart accountStats={accountStats} logStats={logStats} />
@@ -2850,14 +2867,20 @@ export default function Dashboard() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Biểu đồ đang bị tắt trong phần tùy chỉnh widget.
+                Biểu đồ trạng thái & hoạt động đang bị tắt trong phần tùy chỉnh widget.
               </p>
             )}
             <div className="mt-6">
-              <RevenueChart
-                data={revenueStatsQuery.data ?? []}
-                activeSession={activeSessionQuery.data ?? null}
-              />
+              {widgetState.revenueChart ? (
+                <RevenueChart
+                  data={revenueStatsQuery.data ?? []}
+                  activeSession={activeSessionQuery.data ?? null}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Biểu đồ doanh thu đang bị tắt trong phần tùy chỉnh widget.
+                </p>
+              )}
             </div>
           </DialogContent>
         </Dialog>

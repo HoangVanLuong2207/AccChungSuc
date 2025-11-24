@@ -88,7 +88,13 @@ ${colorConfig
     const color =
       itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
       itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
+    if (!color) {
+      return null
+    }
+    const normalizedColor = color.startsWith("var(--")
+      ? `hsl(${color})`
+      : color
+    return `  --color-${key}: ${normalizedColor};`
   })
   .join("\n")}
 }
