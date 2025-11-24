@@ -12,14 +12,17 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        value: postgresql://root:1ExOZk7EVyqjIxO3XWofcyaKEYUfnwiq@dpg-d35r6gjlpnbc739ndt0-a.oregon-postgres.render.com/cloneacc_148x
-      - key: PGHOST
-        value: dpg-d35r6gjlpnbc739ndt0-a.oregon-postgres.render.com
-      - key: PGPORT
-        value: 5432
-      - key: PGDATABASE
-        value: cloneacc_148x
-      - key: PGUSER
-        value: root
-      - key: PGPASSWORD
-        value: 1ExOZk7EVyqjIxO3XWofcyaKEYUfnwiq
+        sync: false
+
+  # Optional one-time seed job. Enable when you want to seed.
+  - type: cron
+    name: seed-initial-data
+    schedule: "@once"
+    env: node
+    plan: free
+    command: npm run db:seed
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
