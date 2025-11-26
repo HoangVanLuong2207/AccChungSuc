@@ -42,8 +42,8 @@ export async function setupVite(app: Express, server: Server) {
 
   app.use(vite.middlewares);
   app.use("*", async (req, res, next) => {
-    // Skip API routes - they should return JSON, not HTML
-    if (req.originalUrl.startsWith("/api")) {
+    // Skip API routes and Socket.IO - they should return JSON, not HTML
+    if (req.originalUrl.startsWith("/api") || req.originalUrl.startsWith("/socket.io")) {
       return next();
     }
 

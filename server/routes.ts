@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
 import { insertAccountSchema, updateAccountSchema, updateAccountTagSchema, insertUserSchema, insertAccLogSchema, updateAccLogSchema, insertLiveSessionSchema } from "@shared/schema";
 import { isAuthenticated } from "./auth";
@@ -81,6 +82,33 @@ async function processImportRecords<T, I extends { username: string; password: s
   return { createdRecords, errors };
 }
 
+// Global Socket.IO instance - will be initialized in registerRoutes
+let io: SocketIOServer | null = null;
+
+export function getIO(): SocketIOServer | null {
+  return io;
+}
+
+// Helper function to emit account status updates
+function emitAccountStatusUpdate(accountIds: number[], status: boolean, entityType: "accounts" | "acclogs" = "accounts") {
+  if (!io) {
+    console.warn(`[Socket.IO] Cannot emit account-status-updated: Socket.IO not initialized yet`);
+    return;
+  }
+  
+  const connectedClients = io.sockets.sockets.size;
+  console.log(`[Socket.IO] Emitting account-status-updated: ${entityType}, ids: ${accountIds.join(", ")}, status: ${status}, connected clients: ${connectedClients}`);
+  
+  io.emit("account-status-updated", {
+    entityType,
+    accountIds,
+    status,
+    timestamp: new Date().toISOString(),
+  });
+  
+  console.log(`[Socket.IO] Successfully emitted account-status-updated event`);
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.post("/api/login", async (req, res) => {
@@ -122,6 +150,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allAccounts = await storage.getAllAccounts();
       
       const updatedCount = await storage.updateAllAccountStatuses(body.status);
+      
+      // Emit real-time update
+      const allAccountIds = allAccounts.map(acc => acc.id);
+      emitAccountStatusUpdate(allAccountIds, body.status, "accounts");
       
       // Track revenue when accounts change from ON to OFF (accounts đã được sử dụng xong)
       if (body.status === false) {
@@ -176,6 +208,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const accountsToUpdate = allAccounts.filter((acc) => body.ids.includes(acc.id));
       
       const updatedCount = await storage.updateSelectedAccountStatuses(body.ids, body.status);
+      
+      // Emit real-time update
+      emitAccountStatusUpdate(body.ids, body.status, "accounts");
       
       // Track revenue when accounts change from ON to OFF (accounts đã được sử dụng xong)
       if (body.status === false) {
@@ -279,6 +314,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!account) {
         return res.status(404).json({ message: "Account not found" });
       }
+
+      // Emit real-time update
+      emitAccountStatusUpdate([id], status!, "accounts");
 
       // Track revenue when account changes from ON to OFF (account đã được sử dụng xong)
       if (previousStatus && !status) {
@@ -492,7 +530,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/acclogs/status-all", isAuthenticated, async (req, res) => {
     try {
       const body = z.object({ status: z.boolean() }).parse(req.body);
+      const allLogs = await storage.getAllAccLogs();
       const updatedCount = await storage.updateAllAccLogStatuses(body.status);
+      
+      // Emit real-time update
+      const allLogIds = allLogs.map(log => log.id);
+      emitAccountStatusUpdate(allLogIds, body.status, "acclogs");
+      
       res.json({ updated: updatedCount, status: body.status });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -511,6 +555,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .parse(req.body);
       const updatedCount = await storage.updateSelectedAccLogStatuses(body.ids, body.status);
+      
+      // Emit real-time update
+      emitAccountStatusUpdate(body.ids, body.status, "acclogs");
+      
       res.json({ updated: updatedCount, status: body.status });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -557,6 +605,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!log) {
         return res.status(404).json({ message: "AccLog not found" });
       }
+
+      // Emit real-time update
+      emitAccountStatusUpdate([id], status!, "acclogs");
 
       res.json(log);
     } catch (error) {
@@ -805,6 +856,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Initialize Socket.IO
+  console.log(`[Socket.IO] Initializing Socket.IO server...`);
+  io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: true, // Allow all origins (will be restricted by credentials)
+      methods: ["GET", "POST"],
+      credentials: true,
+    },
+    allowEIO3: true, // Support older Socket.IO clients
+    path: "/socket.io/", // Explicit path
+  });
+
+  console.log(`[Socket.IO] Socket.IO server initialized successfully`);
+
+  // Socket.IO connection handling
+  io.on("connection", (socket) => {
+    console.log(`[Socket.IO] Client connected: ${socket.id}, total clients: ${io?.sockets.sockets.size || 0}`);
+    
+    socket.on("disconnect", (reason) => {
+      console.log(`[Socket.IO] Client disconnected: ${socket.id}, reason: ${reason}, remaining clients: ${io?.sockets.sockets.size || 0}`);
+    });
+
+    socket.on("error", (error) => {
+      console.error(`[Socket.IO] Socket error for ${socket.id}:`, error);
+    });
+  });
+
+  io.engine.on("connection_error", (err) => {
+    console.error(`[Socket.IO] Connection error:`, err);
+  });
+
   return httpServer;
 }
 
