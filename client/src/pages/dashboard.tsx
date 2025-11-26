@@ -28,6 +28,7 @@ import SetPriceDialog from "@/components/set-price-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useSocket } from "@/hooks/use-socket";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -1830,6 +1831,9 @@ export default function Dashboard() {
   const [isSetPriceDialogOpen, setSetPriceDialogOpen] = useState(false);
   const [updatingStatusIds, setUpdatingStatusIds] = useState<Set<number>>(new Set());
   const [activeCopyButtons, setActiveCopyButtons] = useState<Set<string>>(new Set());
+
+  // Initialize WebSocket connection for real-time updates
+  useSocket();
 
   const accountsQuery = useQuery<Account[]>({ queryKey: [ENTITY_CONFIG.accounts.listKey] });
   const logsQuery = useQuery<AccLog[]>({ queryKey: [ENTITY_CONFIG.logs.listKey] });
