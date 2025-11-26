@@ -859,14 +859,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize Socket.IO
   console.log(`[Socket.IO] Initializing Socket.IO server...`);
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin: true, // Allow all origins (will be restricted by credentials)
+      origin: isProduction ? true : true, // Allow all origins (will be restricted by credentials)
       methods: ["GET", "POST"],
       credentials: true,
     },
     allowEIO3: true, // Support older Socket.IO clients
     path: "/socket.io/", // Explicit path
+    // Important for production with reverse proxy (like Render)
+    transports: ["websocket", "polling"],
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    // Enable compatibility with reverse proxies
+    allowUpgrades: true,
+    // For Render and other cloud platforms
+    ...(isProduction && {
+      // Trust proxy headers
+      cookie: {
+        sameSite: "lax",
+        secure: true,
+      },
+    }),
   });
 
   console.log(`[Socket.IO] Socket.IO server initialized successfully`);
