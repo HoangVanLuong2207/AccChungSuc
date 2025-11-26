@@ -11,8 +11,22 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? '***[HIDDEN]***' : 'Not 
 
 const app = express();
 
-// Trust the first proxy
+// Trust the first proxy (important for Render and other cloud platforms)
 app.set('trust proxy', 1);
+
+// Enable CORS for Socket.IO if needed
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    // Allow Socket.IO handshake requests
+    if (req.path.startsWith('/socket.io')) {
+      res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    }
+    next();
+  });
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

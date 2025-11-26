@@ -15,16 +15,29 @@ export function useSocket() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    console.log("[Socket.IO] Initializing connection to:", window.location.origin);
+    const origin = window.location.origin;
+    console.log("[Socket.IO] Initializing connection to:", origin);
     
     // Create Socket.IO connection
-    const socket = io(window.location.origin, {
-      transports: ["websocket", "polling"],
+    // For production (Render), use polling first then upgrade to websocket
+    const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    
+    const socket = io(origin, {
+      // Try polling first for better compatibility with reverse proxies (Render)
+      transports: isProduction ? ["polling", "websocket"] : ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10, // More attempts for production
+      reconnectionDelayMax: 5000,
       path: "/socket.io/",
       autoConnect: true,
+      // For production with reverse proxy
+      ...(isProduction && {
+        upgrade: true,
+        rememberUpgrade: true,
+        timeout: 20000,
+        forceNew: false,
+      }),
     });
 
     socketRef.current = socket;

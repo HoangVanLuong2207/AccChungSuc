@@ -8,6 +8,9 @@ services:
     buildCommand: bash scripts/render-build.sh
     startCommand: npm start
     healthCheckPath: /api/accounts/stats
+    # Enable sticky sessions for WebSocket support (important for Socket.IO)
+    # This ensures all requests from the same client go to the same instance
+    stickySessions: true
     envVars:
       - key: NODE_VERSION
         value: 20.17.0
