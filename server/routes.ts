@@ -490,7 +490,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Khong co ban ghi de import" });
       }
 
+      // Process in chunks when there are more than 1000 records
       if (records.length > 1000) {
+        const MAX_BATCH_SIZE = 1000;
+        const allCreated: unknown[] = [];
+        const allErrors: Array<{ account: unknown; error: string }> = [];
+
+        for (let i = 0; i < records.length; i += MAX_BATCH_SIZE) {
+          const batch = records.slice(i, i + MAX_BATCH_SIZE);
+          const { createdRecords, errors } = await processImportRecords(
+            batch,
+            (record) => insertAccountSchema.parse(normalizeLevelField(record)),
+            (data) => storage.createAccount(data)
+          );
+          allCreated.push(...createdRecords);
+          allErrors.push(...errors);
+        }
+
+        return res.json({
+          imported: allCreated.length,
+          errors: allErrors.length,
+          accounts: allCreated,
+          errorDetails: allErrors,
+          sourceName: sourceName ?? null,
+        });
+      }
+
+      if (false && records.length > 1000) {
         return res.status(400).json({ message: "Qua nhieu tài khoản. Gioi han 1000 tài khoản moi lan import" });
       }
 
@@ -713,7 +739,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Khong co ban ghi de import" });
       }
 
+      // Process in chunks when there are more than 1000 records
       if (records.length > 1000) {
+        const MAX_BATCH_SIZE = 1000;
+        const allCreated: unknown[] = [];
+        const allErrors: Array<{ account: unknown; error: string }> = [];
+
+        for (let i = 0; i < records.length; i += MAX_BATCH_SIZE) {
+          const batch = records.slice(i, i + MAX_BATCH_SIZE);
+          const { createdRecords, errors } = await processImportRecords(
+            batch,
+            (record) => insertAccLogSchema.parse(normalizeLevelField(record)),
+            (data) => storage.createAccLog(data)
+          );
+          allCreated.push(...createdRecords);
+          allErrors.push(...errors);
+        }
+
+        return res.json({
+          imported: allCreated.length,
+          errors: allErrors.length,
+          accLogs: allCreated,
+          errorDetails: allErrors,
+          sourceName: sourceName ?? null,
+        });
+      }
+
+      if (false && records.length > 1000) {
         return res.status(400).json({ message: "Qua nhieu ban ghi. Gioi han 1000 moi lan import" });
       }
 
@@ -906,4 +958,3 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   return httpServer;
 }
-
