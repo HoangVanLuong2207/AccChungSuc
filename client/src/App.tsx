@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/hooks/use-theme';
 import { AuthProvider } from '@/hooks/use-auth';
 import Dashboard from "@/pages/dashboard";
 import AccLogPage from "@/pages/acclog";
+import AccountsPage from "@/pages/accounts";
 import LoginPage from "@/pages/login";
 import ProtectedRoute from '@/components/protected-route';
 import NotFound from "@/pages/not-found";
@@ -23,6 +24,7 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/accounts" element={<AccountsPage />} />
                 <Route path="/acclogs" element={<AccLogPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />

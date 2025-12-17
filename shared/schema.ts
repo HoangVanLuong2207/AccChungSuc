@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, serial, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -10,6 +10,9 @@ export const accounts = pgTable("accounts", {
   lv: integer("lv").notNull().default(0),
   status: boolean("status").notNull().default(true),
   tag: text("tag"),
+  champion: text("champion"),
+  // Store skins as JSONB array of strings for flexibility
+  skins: jsonb("skins").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
@@ -18,8 +21,15 @@ export const insertAccountSchema = createInsertSchema(accounts).pick({
   password: true,
   tag: true,
   lv: true,
+  champion: true,
+  skins: true,
 }).extend({
   lv: z.coerce.number().int().min(0).default(0),
+  champion: z.string().trim().max(128).optional().transform((v) => (v && v.length > 0 ? v : null)),
+  skins: z
+    .array(z.string().trim())
+    .max(200)
+    .default([]),
 });
 
 export const updateAccountSchema = createInsertSchema(accounts).pick({
@@ -30,10 +40,56 @@ export const updateAccountTagSchema = z.object({
   tag: z.union([z.string().trim().max(64), z.null()]),
 });
 
+// Update details: allow partial updates for editable fields
+export const updateAccountDetailsSchema = z.object({
+  username: z.string().trim().min(1).max(160).optional(),
+  password: z.string().trim().min(1).max(160).optional(),
+  lv: z.coerce.number().int().min(0).optional(),
+  champion: z
+    .string()
+    .trim()
+    .max(128)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : null)),
+  skins: z.array(z.string().trim()).max(200).optional(),
+});
+
 export type InsertAccount = z.infer<typeof insertAccountSchema>;
 export type UpdateAccount = z.infer<typeof updateAccountSchema>;
 export type UpdateAccountTag = z.infer<typeof updateAccountTagSchema>;
+export type UpdateAccountDetails = z.infer<typeof updateAccountDetailsSchema>;
 export type Account = typeof accounts.$inferSelect;
+
+// CloneReg table for manual registry management screen
+export const cloneRegs = pgTable("clonereg", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  champion: text("champion"),
+  skins: jsonb("skins").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCloneRegSchema = createInsertSchema(cloneRegs).pick({
+  username: true,
+  password: true,
+  champion: true,
+  skins: true,
+}).extend({
+  champion: z.string().trim().max(128).optional().transform((v) => (v && v.length > 0 ? v : null)),
+  skins: z.array(z.string().trim()).max(200).default([]),
+});
+
+export const updateCloneRegDetailsSchema = z.object({
+  username: z.string().trim().min(1).max(160).optional(),
+  password: z.string().trim().min(1).max(160).optional(),
+  champion: z.string().trim().max(128).optional().transform((v) => (v && v.length > 0 ? v : null)),
+  skins: z.array(z.string().trim()).max(200).optional(),
+});
+
+export type InsertCloneReg = z.infer<typeof insertCloneRegSchema>;
+export type UpdateCloneRegDetails = z.infer<typeof updateCloneRegDetailsSchema>;
+export type CloneReg = typeof cloneRegs.$inferSelect;
 
 export const accLogs = pgTable("acclogs", {
   id: serial("id").primaryKey(),
@@ -115,4 +171,3 @@ export const insertRevenueRecordSchema = createInsertSchema(revenueRecords).pick
 
 export type InsertRevenueRecord = z.infer<typeof insertRevenueRecordSchema>;
 export type RevenueRecord = typeof revenueRecords.$inferSelect;
-

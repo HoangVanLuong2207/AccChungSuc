@@ -2531,6 +2531,9 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate("/accounts")} className="gap-2">
+              Quản lý tài khoản
+            </Button>
             <ThemeToggle />
             <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
               <LogOut className="h-4 w-4" />
@@ -2988,7 +2991,6 @@ export default function Dashboard() {
     </div>
   );
 }
-
 
 
 
