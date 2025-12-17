@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
-import { insertAccountSchema, updateAccountSchema, updateAccountTagSchema, insertUserSchema, insertAccLogSchema, updateAccLogSchema, insertLiveSessionSchema } from "@shared/schema";
+import { insertAccountSchema, updateAccountSchema, updateAccountTagSchema, insertUserSchema, insertAccLogSchema, updateAccLogSchema, insertLiveSessionSchema, updateAccountDetailsSchema, insertCloneRegSchema, updateCloneRegDetailsSchema } from "@shared/schema";
 import { isAuthenticated } from "./auth";
 import bcrypt from "bcrypt";
 import multer from "multer";
@@ -291,6 +291,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ message: "Failed to create account" });
       }
+    }
+  });
+
+  // Update account details (username/password/lv/champion/skins)
+  app.put("/api/accounts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (!Number.isFinite(id) || id <= 0) {
+        return res.status(400).json({ message: "Invalid account id" });
+      }
+      const body = updateAccountDetailsSchema.parse(normalizeLevelField(req.body));
+      const updated = await storage.updateAccountDetails(id, body);
+      if (!updated) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update account details" });
+      }
+    }
+  });
+
+  // CloneReg manual CRUD
+  app.get("/api/cloneregs", isAuthenticated, async (req, res) => {
+    try {
+      const rows = await storage.getAllCloneRegs();
+      res.json(rows);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch clonereg" });
+    }
+  });
+
+  app.post("/api/cloneregs", isAuthenticated, async (req, res) => {
+    try {
+      const body = insertCloneRegSchema.parse(normalizeLevelField(req.body));
+      const row = await storage.createCloneReg(body);
+      res.status(201).json(row);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create clonereg" });
+      }
+    }
+  });
+
+  app.put("/api/cloneregs/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (!Number.isFinite(id) || id <= 0) {
+        return res.status(400).json({ message: "Invalid id" });
+      }
+      const body = updateCloneRegDetailsSchema.parse(normalizeLevelField(req.body));
+      const updated = await storage.updateCloneRegDetails(id, body);
+      if (!updated) return res.status(404).json({ message: "Not found" });
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update clonereg" });
+      }
+    }
+  });
+
+  app.delete("/api/cloneregs/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const ok = await storage.deleteCloneReg(id);
+      if (!ok) return res.status(404).json({ message: "Not found" });
+      res.json({ message: "Deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete clonereg" });
     }
   });
 

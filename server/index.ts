@@ -132,6 +132,13 @@ app.use((req, res, next) => {
     }
   });
 
+  // Ensure unmatched API routes return JSON 404 (not index.html)
+  app.all("/api/*", (req: Request, res: Response) => {
+    if (!res.headersSent) {
+      res.status(404).json({ message: `API route not found: ${req.method} ${req.path}` });
+    }
+  });
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes

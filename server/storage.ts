@@ -1,4 +1,4 @@
-import { accounts, accLogs, users, liveSessions, revenueRecords, type Account, type InsertAccount, type User, type AccLog, type InsertAccLog, type LiveSession, type InsertLiveSession, type RevenueRecord, type InsertRevenueRecord } from "@shared/schema";
+import { accounts, accLogs, users, liveSessions, revenueRecords, cloneRegs, type Account, type InsertAccount, type User, type AccLog, type InsertAccLog, type LiveSession, type InsertLiveSession, type RevenueRecord, type InsertRevenueRecord, type UpdateAccountDetails, type CloneReg, type InsertCloneReg, type UpdateCloneRegDetails } from "@shared/schema";
 import { db } from "./db";
 import { randomUUID } from "crypto";
 import { eq, sql, inArray, desc, and, gte, lte } from "drizzle-orm";
@@ -20,6 +20,37 @@ const ensureLevelColumnsPromise = (async () => {
     await db.execute(sql`ALTER TABLE accounts ALTER COLUMN "lv" SET NOT NULL`);
   } catch (error) {
     console.error('Error ensuring lv column on accounts:', error);
+  }
+
+  // Add champion and skins columns for accounts
+  try {
+    await db.execute(sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS "champion" text`);
+  } catch (error) {
+    console.error('Error ensuring champion column on accounts:', error);
+  }
+
+  try {
+    await db.execute(sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS "skins" jsonb`);
+    await db.execute(sql`UPDATE accounts SET "skins" = '[]'::jsonb WHERE "skins" IS NULL`);
+    await db.execute(sql`ALTER TABLE accounts ALTER COLUMN "skins" SET NOT NULL`);
+  } catch (error) {
+    console.error('Error ensuring skins column on accounts:', error);
+  }
+
+  // Create clonereg table if not exists
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS clonereg (
+        id SERIAL PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        champion TEXT,
+        skins JSONB NOT NULL DEFAULT '[]'::jsonb,
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+  } catch (error) {
+    console.error('Error ensuring clonereg table:', error);
   }
 
   // Create live_sessions table if not exists
@@ -59,6 +90,7 @@ interface IStorage {
   createAccount(insertAccount: InsertAccount): Promise<Account>;
   updateAccountStatus(id: number, status: boolean): Promise<Account | undefined>;
   updateAccountTag(id: number, tag: string | null): Promise<Account | undefined>;
+  updateAccountDetails(id: number, updates: UpdateAccountDetails): Promise<Account | undefined>;
   updateMultipleAccountTags(tag: string | null, ids?: number[]): Promise<number>;
   deleteAccount(id: number): Promise<boolean>;
   deleteMultipleAccounts(ids: number[]): Promise<number>;
@@ -79,6 +111,12 @@ interface IStorage {
 
   getUserByUsername(username: string): Promise<User | undefined>;
 
+  // CloneReg manual table
+  getAllCloneRegs(): Promise<CloneReg[]>;
+  createCloneReg(insertCloneReg: InsertCloneReg): Promise<CloneReg>;
+  updateCloneRegDetails(id: number, updates: UpdateCloneRegDetails): Promise<CloneReg | undefined>;
+  deleteCloneReg(id: number): Promise<boolean>;
+
   // Revenue tracking methods
   createLiveSession(session: InsertLiveSession): Promise<LiveSession>;
   getActiveLiveSession(): Promise<LiveSession | undefined>;
@@ -92,10 +130,12 @@ export class MemoryStorage implements IStorage {
   private accountsData: Account[] = [];
   private accLogsData: AccLog[] = [];
   private usersData: User[] = [];
+  private cloneRegsData: CloneReg[] = [];
   private liveSessionsData: LiveSession[] = [];
   private revenueRecordsData: RevenueRecord[] = [];
   private accountIdCounter = 1;
   private accLogIdCounter = 1;
+  private cloneRegIdCounter = 1;
   private liveSessionIdCounter = 1;
   private revenueRecordIdCounter = 1;
 
@@ -120,6 +160,8 @@ export class MemoryStorage implements IStorage {
       lv: Number(insertAccount.lv ?? 0),
       status: true,
       tag: insertAccount.tag ?? null,
+      champion: insertAccount.champion ?? null,
+      skins: Array.isArray(insertAccount.skins) ? insertAccount.skins : [],
       updatedAt: new Date(),
     };
     this.accountsData.push(account);
@@ -132,6 +174,20 @@ export class MemoryStorage implements IStorage {
       return undefined;
     }
     account.status = status;
+    account.updatedAt = new Date();
+    return account;
+  }
+
+  async updateAccountDetails(id: number, updates: UpdateAccountDetails): Promise<Account | undefined> {
+    const account = this.accountsData.find((item) => item.id === id);
+    if (!account) {
+      return undefined;
+    }
+    if (updates.username !== undefined) account.username = updates.username;
+    if (updates.password !== undefined) account.password = updates.password;
+    if (updates.lv !== undefined) account.lv = Number(updates.lv);
+    if (Object.prototype.hasOwnProperty.call(updates, 'champion')) account.champion = updates.champion ?? null;
+    if (updates.skins !== undefined) account.skins = Array.isArray(updates.skins) ? updates.skins : [];
     account.updatedAt = new Date();
     return account;
   }
@@ -285,6 +341,41 @@ export class MemoryStorage implements IStorage {
     return updated;
   }
 
+  // CloneReg (manual) implementations
+  async getAllCloneRegs(): Promise<CloneReg[]> {
+    return [...this.cloneRegsData];
+  }
+
+  async createCloneReg(insertCloneReg: InsertCloneReg): Promise<CloneReg> {
+    const record: CloneReg = {
+      id: this.cloneRegIdCounter++,
+      username: insertCloneReg.username,
+      password: insertCloneReg.password,
+      champion: insertCloneReg.champion ?? null,
+      skins: Array.isArray(insertCloneReg.skins) ? insertCloneReg.skins : [],
+      updatedAt: new Date(),
+    };
+    this.cloneRegsData.push(record);
+    return record;
+  }
+
+  async updateCloneRegDetails(id: number, updates: UpdateCloneRegDetails): Promise<CloneReg | undefined> {
+    const record = this.cloneRegsData.find((r) => r.id === id);
+    if (!record) return undefined;
+    if (updates.username !== undefined) record.username = updates.username;
+    if (updates.password !== undefined) record.password = updates.password;
+    if (Object.prototype.hasOwnProperty.call(updates, 'champion')) record.champion = updates.champion ?? null;
+    if (updates.skins !== undefined) record.skins = Array.isArray(updates.skins) ? updates.skins : [];
+    record.updatedAt = new Date();
+    return record;
+  }
+
+  async deleteCloneReg(id: number): Promise<boolean> {
+    const initial = this.cloneRegsData.length;
+    this.cloneRegsData = this.cloneRegsData.filter((r) => r.id !== id);
+    return this.cloneRegsData.length < initial;
+  }
+
   async getUserByUsername(username: string): Promise<User | undefined> {
     return this.usersData.find((user) => user.username === username);
   }
@@ -417,6 +508,28 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error in updateAccountTag:', error);
       throw new Error('Failed to update account tag in database');
+    }
+  }
+
+  async updateAccountDetails(id: number, updates: UpdateAccountDetails): Promise<Account | undefined> {
+    await this.ensureSchema();
+    try {
+      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      if (updates.username !== undefined) patch.username = updates.username;
+      if (updates.password !== undefined) patch.password = updates.password;
+      if (updates.lv !== undefined) patch.lv = Number(updates.lv);
+      if (Object.prototype.hasOwnProperty.call(updates, 'champion')) patch.champion = updates.champion ?? null;
+      if (updates.skins !== undefined) patch.skins = Array.isArray(updates.skins) ? updates.skins : [];
+
+      const [account] = await db
+        .update(accounts)
+        .set(patch as any)
+        .where(eq(accounts.id, id))
+        .returning();
+      return account || undefined;
+    } catch (error) {
+      console.error('Error in updateAccountDetails:', error);
+      throw new Error('Failed to update account details in database');
     }
   }
 
@@ -690,6 +803,60 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // CloneReg (manual) DB implementations
+  async getAllCloneRegs(): Promise<CloneReg[]> {
+    await this.ensureSchema();
+    try {
+      return await db.select().from(cloneRegs);
+    } catch (error) {
+      console.error('Error in getAllCloneRegs:', error);
+      throw new Error('Failed to fetch clonereg from database');
+    }
+  }
+
+  async createCloneReg(insertCloneReg: InsertCloneReg): Promise<CloneReg> {
+    await this.ensureSchema();
+    try {
+      const [row] = await db.insert(cloneRegs).values({
+        username: insertCloneReg.username,
+        password: insertCloneReg.password,
+        champion: insertCloneReg.champion ?? null,
+        skins: Array.isArray(insertCloneReg.skins) ? insertCloneReg.skins : [],
+      }).returning();
+      return row;
+    } catch (error) {
+      console.error('Error in createCloneReg:', error);
+      throw new Error('Failed to create clonereg in database');
+    }
+  }
+
+  async updateCloneRegDetails(id: number, updates: UpdateCloneRegDetails): Promise<CloneReg | undefined> {
+    await this.ensureSchema();
+    try {
+      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      if (updates.username !== undefined) patch.username = updates.username;
+      if (updates.password !== undefined) patch.password = updates.password;
+      if (Object.prototype.hasOwnProperty.call(updates, 'champion')) patch.champion = updates.champion ?? null;
+      if (updates.skins !== undefined) patch.skins = Array.isArray(updates.skins) ? updates.skins : [];
+      const [row] = await db.update(cloneRegs).set(patch as any).where(eq(cloneRegs.id, id)).returning();
+      return row || undefined;
+    } catch (error) {
+      console.error('Error in updateCloneRegDetails:', error);
+      throw new Error('Failed to update clonereg in database');
+    }
+  }
+
+  async deleteCloneReg(id: number): Promise<boolean> {
+    await this.ensureSchema();
+    try {
+      const result = await db.delete(cloneRegs).where(eq(cloneRegs.id, id));
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      console.error('Error in deleteCloneReg:', error);
+      throw new Error('Failed to delete clonereg from database');
+    }
+  }
+
   async createLiveSession(session: InsertLiveSession): Promise<LiveSession> {
     await this.ensureSchema();
     try {
@@ -823,4 +990,3 @@ if (useDatabaseStorage) {
 }
 
 export const storage = storageInstance;
-
