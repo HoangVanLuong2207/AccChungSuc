@@ -45,12 +45,31 @@ const ensureLevelColumnsPromise = (async () => {
         username TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
         champion TEXT,
+        champions JSONB NOT NULL DEFAULT '[]'::jsonb,
         skins JSONB NOT NULL DEFAULT '[]'::jsonb,
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
   } catch (error) {
     console.error('Error ensuring clonereg table:', error);
+  }
+
+  // Ensure champions column exists for clonereg and is not null with default
+  try {
+    await db.execute(sql`ALTER TABLE clonereg ADD COLUMN IF NOT EXISTS "champions" jsonb`);
+    await db.execute(sql`UPDATE clonereg SET "champions" = '[]'::jsonb WHERE "champions" IS NULL`);
+    // Backfill champions from single champion field if present
+    await db.execute(sql`
+      UPDATE clonereg 
+      SET champions = CASE 
+        WHEN champions = '[]'::jsonb AND champion IS NOT NULL AND length(trim(champion)) > 0 
+        THEN jsonb_build_array(trim(champion)) 
+        ELSE champions 
+      END
+    `);
+    await db.execute(sql`ALTER TABLE clonereg ALTER COLUMN "champions" SET NOT NULL`);
+  } catch (error) {
+    console.error('Error ensuring champions column on clonereg:', error);
   }
 
   // Create live_sessions table if not exists
@@ -164,6 +183,10 @@ export class MemoryStorage implements IStorage {
       skins: Array.isArray(insertAccount.skins) ? insertAccount.skins : [],
       updatedAt: new Date(),
     };
+    // Enforce unique username in memory mode for consistency
+    if (this.accountsData.some((a) => (a.username ?? '').trim() === (account.username ?? '').trim())) {
+      throw new Error('unique_violation');
+    }
     this.accountsData.push(account);
     return account;
   }
@@ -352,6 +375,11 @@ export class MemoryStorage implements IStorage {
       username: insertCloneReg.username,
       password: insertCloneReg.password,
       champion: insertCloneReg.champion ?? null,
+      champions: Array.isArray((insertCloneReg as any).champions)
+        ? ((insertCloneReg as any).champions as string[])
+        : (insertCloneReg.champion && String(insertCloneReg.champion).trim().length > 0
+            ? [String(insertCloneReg.champion).trim()]
+            : []),
       skins: Array.isArray(insertCloneReg.skins) ? insertCloneReg.skins : [],
       updatedAt: new Date(),
     };
@@ -365,6 +393,10 @@ export class MemoryStorage implements IStorage {
     if (updates.username !== undefined) record.username = updates.username;
     if (updates.password !== undefined) record.password = updates.password;
     if (Object.prototype.hasOwnProperty.call(updates, 'champion')) record.champion = updates.champion ?? null;
+    if ((updates as any).champions !== undefined) {
+      const champs = (updates as any).champions as unknown;
+      record.champions = Array.isArray(champs) ? champs.map((c) => String(c).trim()).filter(Boolean) : record.champions;
+    }
     if (updates.skins !== undefined) record.skins = Array.isArray(updates.skins) ? updates.skins : [];
     record.updatedAt = new Date();
     return record;
@@ -477,7 +509,14 @@ export class DatabaseStorage implements IStorage {
       return account;
     } catch (error) {
       console.error('Error in createAccount:', error);
-      throw new Error('Tai khoan da ton tai trong he thong');
+      const err = error as any;
+      const message = (err && (err.message || err.toString())) || '';
+      const code = err?.code || err?.severity;
+      // Map Postgres unique constraint violations or similar to a recognizable token
+      if (code === '23505' || /duplicate key value|unique/i.test(message)) {
+        throw new Error('unique_violation');
+      }
+      throw new Error(message || 'Failed to create account');
     }
   }
 
@@ -817,10 +856,17 @@ export class DatabaseStorage implements IStorage {
   async createCloneReg(insertCloneReg: InsertCloneReg): Promise<CloneReg> {
     await this.ensureSchema();
     try {
+      const championsArray = Array.isArray((insertCloneReg as any).champions)
+        ? ((insertCloneReg as any).champions as string[])
+        : (insertCloneReg.champion && String(insertCloneReg.champion).trim().length > 0
+            ? [String(insertCloneReg.champion).trim()]
+            : []);
+
       const [row] = await db.insert(cloneRegs).values({
         username: insertCloneReg.username,
         password: insertCloneReg.password,
         champion: insertCloneReg.champion ?? null,
+        champions: championsArray,
         skins: Array.isArray(insertCloneReg.skins) ? insertCloneReg.skins : [],
       }).returning();
       return row;
@@ -837,6 +883,10 @@ export class DatabaseStorage implements IStorage {
       if (updates.username !== undefined) patch.username = updates.username;
       if (updates.password !== undefined) patch.password = updates.password;
       if (Object.prototype.hasOwnProperty.call(updates, 'champion')) patch.champion = updates.champion ?? null;
+      if (Object.prototype.hasOwnProperty.call(updates as any, 'champions')) {
+        const champs = (updates as any).champions as unknown;
+        patch.champions = Array.isArray(champs) ? champs.map((c) => String(c).trim()).filter(Boolean) : [];
+      }
       if (updates.skins !== undefined) patch.skins = Array.isArray(updates.skins) ? updates.skins : [];
       const [row] = await db.update(cloneRegs).set(patch as any).where(eq(cloneRegs.id, id)).returning();
       return row || undefined;

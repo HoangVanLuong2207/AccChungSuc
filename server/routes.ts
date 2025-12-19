@@ -48,24 +48,36 @@ function extractRecordsFromFile(fileContent: string) {
 async function processImportRecords<T, I extends { username: string; password: string }>(
   records: unknown[],
   parseRecord: (record: unknown) => I,
-  createRecord: (data: I) => Promise<T>
+  createRecord: (data: I) => Promise<T>,
+  options?: { existingUsernames?: Set<string>; normalizeUsername?: (u: string) => string }
 ) {
   const createdRecords: T[] = [];
   const errors: Array<{ account: unknown; error: string }> = [];
   const seenUsernames = new Set<string>();
+  const existing = options?.existingUsernames ?? new Set<string>();
+  const normalize = options?.normalizeUsername ?? ((u: string) => u);
 
   for (const record of records) {
     try {
       const validated = parseRecord(record);
+      const normalizedUsername = normalize(validated.username);
 
-      if (seenUsernames.has(validated.username)) {
+      // Skip if username already seen in this file
+      if (seenUsernames.has(normalizedUsername)) {
         errors.push({ account: record, error: 'Tên tài khoản trùng lặp trong file' });
         continue;
       }
-      seenUsernames.add(validated.username);
+      // Skip if username already exists in database
+      if (existing.has(normalizedUsername)) {
+        errors.push({ account: record, error: 'Tên tài khoản đã tồn tại trong database' });
+        continue;
+      }
+      seenUsernames.add(normalizedUsername);
 
-      const created = await createRecord(validated);
+      const created = await createRecord({ ...(validated as any), username: normalizedUsername });
       createdRecords.push(created);
+      // Mark as existing to prevent duplicates within the same import session
+      existing.add(normalizedUsername);
     } catch (error) {
       let errorMessage = 'Lỗi không xác định';
       if (error instanceof Error) {
@@ -536,10 +548,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Quá nhiều tài khoản. Giới hạn 1000 tài khoản mỗi lần import" });
       }
 
+      // Prefetch existing usernames to avoid repeated duplicate errors
+      const existingAccounts = await storage.getAllAccounts();
+      const existingSet = new Set(existingAccounts.map((a) => (a.username ?? '').trim()));
+
       const { createdRecords, errors } = await processImportRecords(
         records,
         (record) => insertAccountSchema.parse(normalizeLevelField(record)),
-        (data) => storage.createAccount(data)
+        (data) => storage.createAccount(data),
+        {
+          existingUsernames: existingSet,
+          normalizeUsername: (u) => (u ?? '').trim(),
+        }
       );
 
       res.json({
@@ -566,6 +586,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Khong co ban ghi de import" });
       }
 
+      // Prefetch existing usernames to avoid repeated duplicate errors
+      const existingAccounts = await storage.getAllAccounts();
+      const existingSet = new Set(existingAccounts.map((a) => (a.username ?? '').trim()));
+
       // Process in chunks when there are more than 1000 records
       if (records.length > 1000) {
         const MAX_BATCH_SIZE = 1000;
@@ -577,7 +601,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const { createdRecords, errors } = await processImportRecords(
             batch,
             (record) => insertAccountSchema.parse(normalizeLevelField(record)),
-            (data) => storage.createAccount(data)
+            (data) => storage.createAccount(data),
+            {
+              existingUsernames: existingSet,
+              normalizeUsername: (u) => (u ?? '').trim(),
+            }
           );
           allCreated.push(...createdRecords);
           allErrors.push(...errors);
@@ -599,7 +627,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { createdRecords, errors } = await processImportRecords(
         records,
         (record) => insertAccountSchema.parse(normalizeLevelField(record)),
-        (data) => storage.createAccount(data)
+        (data) => storage.createAccount(data),
+        {
+          existingUsernames: existingSet,
+          normalizeUsername: (u) => (u ?? '').trim(),
+        }
       );
 
       res.json({

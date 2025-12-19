@@ -1388,11 +1388,12 @@ interface ImportPipelineAssistantProps {
   entity: EntityKey;
   onImport: (payload: ImportPayload) => Promise<void>;
   isImporting: boolean;
+  progress?: { done: number; total: number } | null;
 }
 
 type PipelineStep = 1 | 2 | 3;
 
-function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipelineAssistantProps) {
+function ImportPipelineAssistant({ entity, onImport, isImporting, progress }: ImportPipelineAssistantProps) {
   const LEVEL_MAPPING_NONE = "__none__";
   const entityLabel = ENTITY_CONFIG[entity].label;
   const [step, setStep] = useState<PipelineStep>(1);
@@ -1774,6 +1775,19 @@ function ImportPipelineAssistant({ entity, onImport, isImporting }: ImportPipeli
             </div>
 
             <div className="flex flex-wrap gap-2">
+              {isImporting || (progress && progress.total > 0) ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-40 rounded bg-muted">
+                    <div
+                      className="h-2 rounded bg-primary transition-all"
+                      style={{ width: `${Math.min(100, Math.round(((progress?.done ?? 0) / Math.max(1, progress?.total ?? 1)) * 100))}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {Math.min(progress?.done ?? 0, progress?.total ?? 0)}/{progress?.total ?? 0}
+                  </span>
+                </div>
+              ) : null}
               <Button variant="ghost" size="sm" onClick={handleBack}>
                 Chỉnh sửa mapping
               </Button>
@@ -1827,6 +1841,7 @@ export default function Dashboard() {
   const [pendingBulkDelete, setPendingBulkDelete] = useState<{ entity: EntityKey; mode: "selected" | "all" } | null>(null);
   const [lastImportSummary, setLastImportSummary] = useState<ImportSummary | null>(null);
   const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
+  const [importState, setImportState] = useState<{ entity: EntityKey; done: number; total: number; running: boolean } | null>(null);
   const [tagModalState, setTagModalState] = useState<TagModalState | null>(null);
   const [isSetPriceDialogOpen, setSetPriceDialogOpen] = useState(false);
   const [updatingStatusIds, setUpdatingStatusIds] = useState<Set<number>>(new Set());
@@ -2437,6 +2452,59 @@ export default function Dashboard() {
     setTagModalState({ mode: "bulk", ids, initialTag: sharedTag ?? "" });
   };
 
+  const handleImportRecordsWithProgress = async (entity: EntityKey, payload: ImportPayload) => {
+    try {
+      const records = payload.records;
+      const total = records.length;
+      // Dynamic chunk size to update progress smoothly even for small files
+      // Target roughly 20 progress updates; cap at 200 per request
+      const chunkSize = Math.max(1, Math.min(200, Math.ceil(total / 20)));
+      if (total === 0) return;
+      setImportState({ entity, done: 0, total, running: true });
+
+      let totalImported = 0;
+      let totalErrors = 0;
+      const allErrorDetails: Array<{ account: unknown; error: string }> = [];
+      const importPath = ENTITY_CONFIG[entity].importPath;
+
+      for (let i = 0; i < total; i += chunkSize) {
+        const chunk = records.slice(i, i + chunkSize);
+        const response = await apiRequest<ImportApiResponse>("POST", importPath, {
+          records: chunk,
+          sourceName: payload.sourceName,
+        });
+        totalImported += response.imported;
+        totalErrors += response.errors;
+        allErrorDetails.push(...(response.errorDetails ?? []));
+        setImportState({ entity, done: Math.min(i + chunk.length, total), total, running: true });
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [ENTITY_CONFIG[entity].listKey] }),
+        queryClient.invalidateQueries({ queryKey: [ENTITY_CONFIG[entity].statsKey] }),
+      ]);
+
+      const summary: ImportSummary = {
+        entity,
+        imported: totalImported,
+        errors: totalErrors,
+        sourceName: payload.sourceName,
+        timestamp: new Date().toISOString(),
+      };
+      setLastImportSummary(summary);
+      setImportFeedback({ ...summary, errorDetails: allErrorDetails });
+      toast({
+        title: "Import th�nh c�ng",
+        description: `�? th�m ${totalImported} ${ENTITY_CONFIG[entity].label.toLowerCase()}`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Kh�ng th? import";
+      toast({ title: "Import th?t b?i", description: message, variant: "destructive" });
+    } finally {
+      setImportState(null);
+    }
+  };
+
   const handleImportRecords = async (entity: EntityKey, payload: ImportPayload) => {
     const mutation = entity === "accounts" ? accountImportMutation : logImportMutation;
     try {
@@ -2902,8 +2970,9 @@ export default function Dashboard() {
               <div className="max-h-[70vh] overflow-y-auto pr-1 sm:pr-2">
                 <ImportPipelineAssistant
                   entity={activeTab}
-                  onImport={(payload) => handleImportRecords(activeTab, payload)}
-                  isImporting={activeTab === "accounts" ? accountImportMutation.isPending : logImportMutation.isPending}
+                  onImport={(payload) => handleImportRecordsWithProgress(activeTab, payload)}
+                  isImporting={!!(importState && importState.entity === activeTab && importState.running)}
+                  progress={importState && importState.entity === activeTab ? { done: importState.done, total: importState.total } : null}
                 />
               </div>
             ) : (
@@ -2991,11 +3060,6 @@ export default function Dashboard() {
     </div>
   );
 }
-
-
-
-
-
 
 
 
