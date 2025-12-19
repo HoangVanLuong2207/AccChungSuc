@@ -24,8 +24,14 @@ export const insertAccountSchema = createInsertSchema(accounts).pick({
   champion: true,
   skins: true,
 }).extend({
+  username: z.string().trim().min(1).max(160),
+  password: z.string().trim().min(1).max(160),
   lv: z.coerce.number().int().min(0).default(0),
-  champion: z.string().trim().max(128).optional().transform((v) => (v && v.length > 0 ? v : null)),
+  // Accept string or null; normalize empty string to null
+  champion: z
+    .union([z.string().trim().max(128), z.null()])
+    .optional()
+    .transform((v) => (typeof v === "string" && v.trim().length > 0 ? v.trim() : null)),
   skins: z
     .array(z.string().trim())
     .max(200)
@@ -45,12 +51,11 @@ export const updateAccountDetailsSchema = z.object({
   username: z.string().trim().min(1).max(160).optional(),
   password: z.string().trim().min(1).max(160).optional(),
   lv: z.coerce.number().int().min(0).optional(),
+  // Allow explicit null or non-empty string; normalize empty to null
   champion: z
-    .string()
-    .trim()
-    .max(128)
+    .union([z.string().trim().max(128), z.null()])
     .optional()
-    .transform((v) => (v && v.length > 0 ? v : null)),
+    .transform((v) => (typeof v === "string" && v.trim().length > 0 ? v.trim() : null)),
   skins: z.array(z.string().trim()).max(200).optional(),
 });
 
@@ -66,6 +71,8 @@ export const cloneRegs = pgTable("clonereg", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   champion: text("champion"),
+  // New: support multiple champions as JSONB array
+  champions: jsonb("champions").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   skins: jsonb("skins").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -74,16 +81,30 @@ export const insertCloneRegSchema = createInsertSchema(cloneRegs).pick({
   username: true,
   password: true,
   champion: true,
+  champions: true,
   skins: true,
 }).extend({
-  champion: z.string().trim().max(128).optional().transform((v) => (v && v.length > 0 ? v : null)),
+  username: z.string().trim().min(1).max(160),
+  password: z.string().trim().min(1).max(160),
+  // Accept string or null for champion in CloneReg too
+  champion: z
+    .union([z.string().trim().max(128), z.null()])
+    .optional()
+    .transform((v) => (typeof v === "string" && v.trim().length > 0 ? v.trim() : null)),
+  // Multiple champions support
+  champions: z.array(z.string().trim()).max(200).default([]),
   skins: z.array(z.string().trim()).max(200).default([]),
 });
 
 export const updateCloneRegDetailsSchema = z.object({
   username: z.string().trim().min(1).max(160).optional(),
   password: z.string().trim().min(1).max(160).optional(),
-  champion: z.string().trim().max(128).optional().transform((v) => (v && v.length > 0 ? v : null)),
+  // Allow explicit null or non-empty string; normalize empty to null
+  champion: z
+    .union([z.string().trim().max(128), z.null()])
+    .optional()
+    .transform((v) => (typeof v === "string" && v.trim().length > 0 ? v.trim() : null)),
+  champions: z.array(z.string().trim()).max(200).optional(),
   skins: z.array(z.string().trim()).max(200).optional(),
 });
 

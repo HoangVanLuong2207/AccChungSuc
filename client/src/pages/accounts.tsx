@@ -17,15 +17,15 @@ import {
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-function parseSkinsInput(value: string): string[] {
+function parseListInput(value: string): string[] {
   return value
     .split(/\r?\n|,/) // split by newline or comma
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 }
 
-function skinsToTextarea(skins?: string[]): string {
-  return (skins ?? []).join("\n");
+function listToTextarea(list?: string[]): string {
+  return (list ?? []).join("\n");
 }
 
 type EditState =
@@ -46,7 +46,8 @@ export default function AccountsPage() {
     const term = search.trim().toLowerCase();
     if (!term) return accounts;
     return accounts.filter((a) => {
-      const haystack = `${a.username} ${a.password} ${a.champion ?? ""} ${(a.skins ?? []).join(" ")}`.toLowerCase();
+      const champs = Array.isArray((a as any).champions) ? ((a as any).champions as string[]).join(" ") : (a.champion ?? "");
+      const haystack = `${a.username} ${a.password} ${champs} ${(a.skins ?? []).join(" ")}`.toLowerCase();
       return haystack.includes(term);
     });
   }, [accounts, search]);
@@ -55,8 +56,13 @@ export default function AccountsPage() {
   const championSuggestions = useMemo(() => {
     const set = new Set<string>();
     for (const r of accounts) {
-      const c = (r.champion ?? "").trim();
-      if (c) set.add(c);
+      const champs = Array.isArray((r as any).champions) ? ((r as any).champions as string[]) : [];
+      for (const c of champs) {
+        const v = String(c || "").trim();
+        if (v) set.add(v);
+      }
+      const c1 = (r.champion ?? "").trim();
+      if (c1) set.add(c1);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [accounts]);
@@ -74,7 +80,7 @@ export default function AccountsPage() {
 
   const createMutation = useMutation({
     // Create: username/password bắt buộc; champion/skins tùy chọn
-    mutationFn: async (payload: { username: string; password: string; champion?: string | null; skins?: string[] }) =>
+    mutationFn: async (payload: { username: string; password: string; champion?: string | null; champions?: string[]; skins?: string[] }) =>
       apiRequest<CloneReg>("POST", "/api/cloneregs", payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/cloneregs"] });
@@ -87,7 +93,7 @@ export default function AccountsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<Pick<CloneReg, "username" | "password" | "champion" | "skins">> }) =>
+    mutationFn: async ({ id, data }: { id: number; data: Partial<Pick<CloneReg, "username" | "password" | "champion" | "skins">> & { champions?: string[] } }) =>
       apiRequest<CloneReg>("PUT", `/api/cloneregs/${id}` , data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/cloneregs"] });
@@ -110,13 +116,18 @@ export default function AccountsPage() {
     },
   });
 
-  const [form, setForm] = useState({ username: "", password: "", champion: "", skinsText: "" });
+  const [form, setForm] = useState({ username: "", password: "", championsText: "", skinsText: "" });
 
-  const parsedSkins = useMemo(() => parseSkinsInput(form.skinsText), [form.skinsText]);
+  const parsedSkins = useMemo(() => parseListInput(form.skinsText), [form.skinsText]);
+  const parsedChampions = useMemo(() => parseListInput(form.championsText), [form.championsText]);
   const currentSkinQuery = useMemo(() => {
     const lines = form.skinsText.split(/\r?\n/);
     return (lines[lines.length - 1] || "").trim().toLowerCase();
   }, [form.skinsText]);
+  const currentChampionQuery = useMemo(() => {
+    const lines = form.championsText.split(/\r?\n/);
+    return (lines[lines.length - 1] || "").trim().toLowerCase();
+  }, [form.championsText]);
   const filteredSkinSuggestions = useMemo(() => {
     const have = new Set(parsedSkins.map((s) => s.toLowerCase()));
     const pool = currentSkinQuery
@@ -124,6 +135,14 @@ export default function AccountsPage() {
       : skinSuggestions;
     return pool.filter((s) => !have.has(s.toLowerCase())).slice(0, 12);
   }, [skinSuggestions, parsedSkins, currentSkinQuery]);
+
+  const filteredChampionSuggestions = useMemo(() => {
+    const have = new Set(parsedChampions.map((s) => s.toLowerCase()));
+    const pool = currentChampionQuery
+      ? championSuggestions.filter((s) => s.toLowerCase().includes(currentChampionQuery))
+      : championSuggestions;
+    return pool.filter((s) => !have.has(s.toLowerCase())).slice(0, 12);
+  }, [championSuggestions, parsedChampions, currentChampionQuery]);
 
   function addSkinSuggestion(s: string) {
     // Replace last line if it's a partial, otherwise append
@@ -133,13 +152,26 @@ export default function AccountsPage() {
     } else {
       lines.push(s);
     }
-    const next = parseSkinsInput(lines.join("\n"));
+    const next = parseListInput(lines.join("\n"));
     const dedup = Array.from(new Set(next));
     setForm((f) => ({ ...f, skinsText: dedup.join("\n") }));
   }
 
+  function addChampionSuggestion(s: string) {
+    // Replace last line if it's a partial, otherwise append
+    const lines = form.championsText.split(/\r?\n/);
+    if (currentChampionQuery.length > 0) {
+      lines[lines.length - 1] = s;
+    } else {
+      lines.push(s);
+    }
+    const next = parseListInput(lines.join("\n"));
+    const dedup = Array.from(new Set(next));
+    setForm((f) => ({ ...f, championsText: dedup.join("\n") }));
+  }
+
   const openCreate = () => {
-    setForm({ username: "", password: "", champion: "", skinsText: "" });
+    setForm({ username: "", password: "", championsText: "", skinsText: "" });
     setEdit({ mode: "create", open: true });
   };
 
@@ -147,8 +179,8 @@ export default function AccountsPage() {
     setForm({
       username: acc.username,
       password: acc.password,
-      champion: acc.champion ?? "",
-      skinsText: skinsToTextarea(acc.skins ?? []),
+      championsText: listToTextarea((acc as any).champions ?? (acc.champion ? [acc.champion] : [])),
+      skinsText: listToTextarea(acc.skins ?? []),
     });
     setEdit({ mode: "edit", open: true, account: acc });
   };
@@ -159,13 +191,13 @@ export default function AccountsPage() {
     const username = form.username.trim();
     const password = form.password.trim();
     if (edit.mode === "create") {
-      const champion = form.champion; // có thể rỗng -> server sẽ transform thành null
-      const skins = parseSkinsInput(form.skinsText); // có thể rỗng
-      createMutation.mutate({ username, password, champion, skins });
+      const champions = parseListInput(form.championsText);
+      const skins = parseListInput(form.skinsText);
+      createMutation.mutate({ username, password, champions, skins });
     } else {
-      const champion = form.champion.trim() || null;
-      const skins = parseSkinsInput(form.skinsText);
-      updateMutation.mutate({ id: edit.account.id, data: { username, password, champion, skins } });
+      const champions = parseListInput(form.championsText);
+      const skins = parseListInput(form.skinsText);
+      updateMutation.mutate({ id: edit.account.id, data: { username, password, champions, skins } });
     }
   };
 
@@ -197,7 +229,7 @@ export default function AccountsPage() {
                 <TableRow>
                   <TableHead className="w-[180px]">Tài khoản</TableHead>
                   <TableHead className="w-[200px]">Mật khẩu</TableHead>
-                  <TableHead className="w-[180px]">Tên tướng</TableHead>
+                  <TableHead className="w-[220px]">Tên tướng</TableHead>
                   <TableHead>Skins / Ghi chú</TableHead>
                   <TableHead className="w-[140px]">Hành động</TableHead>
                 </TableRow>
@@ -223,7 +255,17 @@ export default function AccountsPage() {
                           </Button>
                         </div>
                       </TableCell>
-                      <TableCell>{acc.champion ?? "--"}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {Array.isArray((acc as any).champions) && (acc as any).champions.length > 0 ? (
+                            ((acc as any).champions as string[]).map((c, i) => (
+                              <Badge key={`${acc.id}-champion-${i}`} variant="outline">{c}</Badge>
+                            ))
+                          ) : (
+                            <span className="text-xs text-muted-foreground">{acc.champion ?? "--"}</span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {(acc.skins ?? []).length === 0 ? (
@@ -269,15 +311,16 @@ export default function AccountsPage() {
               <Input value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="password" />
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Tên tướng</label>
-              <Input list="champion-suggestions" value={form.champion} onChange={(e) => setForm((f) => ({ ...f, champion: e.target.value }))} placeholder="Ví dụ: Yasuo" />
-              {/* HTML datalist for champion suggestions */}
-              {championSuggestions.length > 0 ? (
-                <datalist id="champion-suggestions">
-                  {championSuggestions.map((c) => (
-                    <option key={c} value={c} />
+              <label className="text-sm font-medium">Tên tướng (mỗi dòng một tướng)</label>
+              <Textarea rows={4} value={form.championsText} onChange={(e) => setForm((f) => ({ ...f, championsText: e.target.value }))} placeholder={"Ví dụ:\nYasuo\nAhri\n..."} />
+              {filteredChampionSuggestions.length > 0 ? (
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {filteredChampionSuggestions.map((s) => (
+                    <Badge key={s} variant="secondary" className="cursor-pointer" onClick={() => addChampionSuggestion(s)}>
+                      {s}
+                    </Badge>
                   ))}
-                </datalist>
+                </div>
               ) : null}
             </div>
             <div className="grid gap-2">
