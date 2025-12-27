@@ -146,7 +146,7 @@ export default function AccountTable({
 
   return (
     <div className="rounded-3xl border border-border/70 bg-card shadow-sm">
-      <div className="flex flex-col gap-4 border-b border-border/70 px-4 py-5 sm:px-6">
+      <div className="sticky top-0 z-10 flex flex-col gap-4 border-b border-border/70 bg-muted px-4 py-5 shadow-sm sm:px-6">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-center gap-1 text-card-foreground">
             <span className="flex h-10 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -490,7 +490,7 @@ export default function AccountTable({
         )}
       </div>
 
-      <div className="border-t border-border/70 bg-muted/30 px-4 py-4 sm:px-6">
+      <div className="sticky bottom-0 z-10 border-t border-border/70 bg-muted px-4 py-4 shadow-sm sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-center text-sm text-muted-foreground sm:text-left">
             Hiển thị <span className="font-semibold text-card-foreground">{displayStart}-{displayEnd}</span> trên tổng
@@ -529,4 +529,3 @@ export default function AccountTable({
     </div>
   );
 }
-

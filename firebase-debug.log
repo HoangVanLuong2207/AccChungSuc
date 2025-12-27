@@ -1,0 +1,65 @@
+[debug] [2025-12-27T06:47:04.751Z] ----------------------------------------------------------------------
+[debug] [2025-12-27T06:47:04.754Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\HoangLuong\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions --debug
+[debug] [2025-12-27T06:47:04.754Z] CLI Version:   15.1.0
+[debug] [2025-12-27T06:47:04.754Z] Platform:      win32
+[debug] [2025-12-27T06:47:04.754Z] Node Version:  v20.18.0
+[debug] [2025-12-27T06:47:04.754Z] Time:          Sat Dec 27 2025 13:47:04 GMT+0700 (Indochina Time)
+[debug] [2025-12-27T06:47:04.754Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-12-27T06:47:06.593Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-12-27T06:47:06.594Z] > authorizing via signed-in user (luonghvpp03220@gmail.com)
+[debug] [2025-12-27T06:47:06.595Z] [iam] checking project accchungsuc for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2025-12-27T06:47:06.596Z] Checked if tokens are valid: true, expires at: 1766820663549
+[debug] [2025-12-27T06:47:06.596Z] Checked if tokens are valid: true, expires at: 1766820663549
+[debug] [2025-12-27T06:47:06.597Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/accchungsuc:testIamPermissions [none]
+[debug] [2025-12-27T06:47:06.597Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/accchungsuc:testIamPermissions x-goog-quota-user=projects/accchungsuc
+[debug] [2025-12-27T06:47:06.598Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/accchungsuc:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-12-27T06:47:07.728Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/accchungsuc:testIamPermissions 200
+[debug] [2025-12-27T06:47:07.728Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/accchungsuc:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-12-27T06:47:07.729Z] Checked if tokens are valid: true, expires at: 1766820663549
+[debug] [2025-12-27T06:47:07.729Z] Checked if tokens are valid: true, expires at: 1766820663549
+[debug] [2025-12-27T06:47:07.729Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/accchungsuc/serviceAccounts/accchungsuc@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2025-12-27T06:47:07.729Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/accchungsuc/serviceAccounts/accchungsuc@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2025-12-27T06:47:09.078Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/accchungsuc/serviceAccounts/accchungsuc@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2025-12-27T06:47:09.078Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/accchungsuc/serviceAccounts/accchungsuc@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'accchungsuc'...
+[info] 
+[info] i  deploying functions 
+[debug] [2025-12-27T06:47:09.081Z] Checked if tokens are valid: true, expires at: 1766820663549
+[debug] [2025-12-27T06:47:09.082Z] Checked if tokens are valid: true, expires at: 1766820663549
+[debug] [2025-12-27T06:47:09.082Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/accchungsuc [none]
+[debug] [2025-12-27T06:47:09.328Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/accchungsuc 200
+[debug] [2025-12-27T06:47:09.328Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/accchungsuc {"projectNumber":"586965387812","projectId":"accchungsuc","lifecycleState":"ACTIVE","name":"AccChungSuc","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-12-27T04:50:11.553621Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[debug] [2025-12-27T06:47:09.330Z] Checked if tokens are valid: true, expires at: 1766820663549
+[debug] [2025-12-27T06:47:09.330Z] Checked if tokens are valid: true, expires at: 1766820663549
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2025-12-27T06:47:09.331Z] Checked if tokens are valid: true, expires at: 1766820663549
+[debug] [2025-12-27T06:47:09.331Z] Checked if tokens are valid: true, expires at: 1766820663549
+[debug] [2025-12-27T06:47:09.331Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/cloudbuild.googleapis.com [none]
+[debug] [2025-12-27T06:47:09.331Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/cloudbuild.googleapis.com x-goog-quota-user=projects/accchungsuc
+[debug] [2025-12-27T06:47:09.333Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/artifactregistry.googleapis.com [none]
+[debug] [2025-12-27T06:47:09.333Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/artifactregistry.googleapis.com x-goog-quota-user=projects/accchungsuc
+[debug] [2025-12-27T06:47:10.539Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/cloudbuild.googleapis.com 200
+[debug] [2025-12-27T06:47:10.539Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/cloudbuild.googleapis.com [omitted]
+[warn] !  functions: missing required API cloudbuild.googleapis.com. Enabling now... 
+[debug] [2025-12-27T06:47:10.540Z] Checked if tokens are valid: true, expires at: 1766820663549
+[debug] [2025-12-27T06:47:10.540Z] Checked if tokens are valid: true, expires at: 1766820663549
+[debug] [2025-12-27T06:47:10.540Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/cloudbuild.googleapis.com:enable [none]
+[debug] [2025-12-27T06:47:10.540Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/cloudbuild.googleapis.com:enable x-goog-quota-user=projects/accchungsuc
+[debug] [2025-12-27T06:47:10.552Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/artifactregistry.googleapis.com 200
+[debug] [2025-12-27T06:47:10.552Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/artifactregistry.googleapis.com [omitted]
+[warn] !  artifactregistry: missing required API artifactregistry.googleapis.com. Enabling now... 
+[debug] [2025-12-27T06:47:10.553Z] Checked if tokens are valid: true, expires at: 1766820663549
+[debug] [2025-12-27T06:47:10.553Z] Checked if tokens are valid: true, expires at: 1766820663549
+[debug] [2025-12-27T06:47:10.553Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/artifactregistry.googleapis.com:enable [none]
+[debug] [2025-12-27T06:47:10.553Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/artifactregistry.googleapis.com:enable x-goog-quota-user=projects/accchungsuc
+[debug] [2025-12-27T06:47:10.839Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/artifactregistry.googleapis.com:enable 400
+[debug] [2025-12-27T06:47:10.839Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/accchungsuc/services/artifactregistry.googleapis.com:enable [omitted]
+[error] 
+[error] Error: Your project accchungsuc must be on the Blaze (pay-as-you-go) plan to complete this command. Required API artifactregistry.googleapis.com can't be enabled until the upgrade is complete. To upgrade, visit the following URL:
+
+https://console.firebase.google.com/project/accchungsuc/usage/details

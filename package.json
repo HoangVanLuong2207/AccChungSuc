@@ -66,6 +66,7 @@
     "esbuild": "^0.25.0",
     "express": "^4.21.2",
     "express-session": "^1.18.2",
+    "firebase": "^12.7.0",
     "framer-motion": "^11.13.1",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.453.0",
@@ -95,7 +96,6 @@
     "vite": "^5.4.20",
     "wouter": "^3.3.5",
     "ws": "^8.18.0",
-    "xlsx": "^0.18.5",
     "zod": "^3.24.2",
     "zod-validation-error": "^3.4.0"
   },
