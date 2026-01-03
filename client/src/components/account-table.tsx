@@ -146,7 +146,7 @@ export default function AccountTable({
 
   return (
     <div className="rounded-3xl border border-border/70 bg-card shadow-sm">
-      <div className="flex flex-col gap-4 border-b border-border/70 px-4 py-5 sm:px-6">
+      <div className="sticky top-0 z-10 flex flex-col gap-4 border-b border-border/70 bg-muted px-4 py-5 shadow-sm sm:px-6">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-center gap-1 text-card-foreground">
             <span className="flex h-10 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -155,7 +155,7 @@ export default function AccountTable({
             <div>
               <h2 className="text-lg font-semibold sm:text-xl">{title}</h2>
               <p className="text-sm text-muted-foreground">
-               Chọn {selectedCount}/{totalCount} 
+                Chọn {selectedCount}/{totalCount}
               </p>
             </div>
           </div>
@@ -200,7 +200,7 @@ export default function AccountTable({
               ) : null}
             </div>
 
-            
+
           </div>
         </div>
       </div>
@@ -305,11 +305,10 @@ export default function AccountTable({
                           <Button
                             size="sm"
                             variant="outline"
-                            className={`h-9 w-9 rounded-full transition-all duration-200 ${
-                              activeCopyButtons.has(`username-${account.id}`)
+                            className={`h-9 w-9 rounded-full transition-all duration-200 ${activeCopyButtons.has(`username-${account.id}`)
                                 ? "border-primary text-primary bg-primary/20 shadow-md border-2 font-bold"
                                 : "border-primary/40 text-primary/70 hover:bg-primary/10 hover:border-primary/60 hover:text-primary"
-                            }`}
+                              }`}
                             onClick={() => onCopyUsername(account.username, account.id)}
                             data-testid={`button-copy-username-${account.id}`}
                           >
@@ -318,11 +317,10 @@ export default function AccountTable({
                           <Button
                             size="sm"
                             variant="outline"
-                            className={`h-9 w-9 rounded-full transition-all duration-200 ${
-                              activeCopyButtons.has(`password-${account.id}`)
+                            className={`h-9 w-9 rounded-full transition-all duration-200 ${activeCopyButtons.has(`password-${account.id}`)
                                 ? "border-primary text-primary bg-primary/20 shadow-md border-2 font-bold"
                                 : "border-primary/40 text-primary/70 hover:bg-primary/10 hover:border-primary/60 hover:text-primary"
-                            }`}
+                              }`}
                             onClick={() => onCopyPassword(account.password, account.id)}
                             data-testid={`button-copy-password-${account.id}`}
                           >
@@ -331,15 +329,14 @@ export default function AccountTable({
                           <Button
                             size="sm"
                             variant="outline"
-                            className={`h-9 w-9 rounded-full transition-all duration-200 ${
-                              updatingStatusIds.has(account.id)
+                            className={`h-9 w-9 rounded-full transition-all duration-200 ${updatingStatusIds.has(account.id)
                                 ? account.status
                                   ? "border-emerald-600 text-emerald-700 bg-emerald-500/30 shadow-md border-2 font-bold"
                                   : "border-amber-600 text-amber-700 bg-amber-500/30 shadow-md border-2 font-bold"
                                 : account.status
                                   ? "border-emerald-500/40 text-emerald-600/70 hover:bg-emerald-500/10 hover:border-emerald-500/60 hover:text-emerald-600"
                                   : "border-amber-500/40 text-amber-600/70 hover:bg-amber-500/10 hover:border-amber-500/60 hover:text-amber-600"
-                            }`}
+                              }`}
                             onClick={() => onToggleStatus(account)}
                             disabled={updatingStatusIds.has(account.id)}
                             data-testid={`button-toggle-status-${account.id}`}
@@ -429,11 +426,10 @@ export default function AccountTable({
                     <Button
                       variant="outline"
                       size="sm"
-                      className={`h-10 rounded-2xl text-sm font-medium transition-all duration-200 ${
-                        activeCopyButtons.has(`username-${account.id}`)
+                      className={`h-10 rounded-2xl text-sm font-medium transition-all duration-200 ${activeCopyButtons.has(`username-${account.id}`)
                           ? "border-primary text-primary bg-primary/20 shadow-md border-2"
                           : "border-primary/40 text-primary/70 hover:bg-primary/10 hover:border-primary/60 hover:text-primary"
-                      }`}
+                        }`}
                       onClick={() => onCopyUsername(account.username, account.id)}
                       data-testid={`button-copy-username-${account.id}`}
                     >
@@ -443,11 +439,10 @@ export default function AccountTable({
                     <Button
                       variant="outline"
                       size="sm"
-                      className={`h-10 rounded-2xl text-sm font-medium transition-all duration-200 ${
-                        activeCopyButtons.has(`password-${account.id}`)
+                      className={`h-10 rounded-2xl text-sm font-medium transition-all duration-200 ${activeCopyButtons.has(`password-${account.id}`)
                           ? "border-primary text-primary bg-primary/20 shadow-md border-2"
                           : "border-primary/40 text-primary/70 hover:bg-primary/10 hover:border-primary/60 hover:text-primary"
-                      }`}
+                        }`}
                       onClick={() => onCopyPassword(account.password, account.id)}
                       data-testid={`button-copy-password-${account.id}`}
                     >
@@ -457,15 +452,14 @@ export default function AccountTable({
                     <Button
                       variant="outline"
                       size="sm"
-                      className={`h-10 rounded-2xl text-sm font-medium transition-all duration-200 ${
-                        updatingStatusIds.has(account.id)
+                      className={`h-10 rounded-2xl text-sm font-medium transition-all duration-200 ${updatingStatusIds.has(account.id)
                           ? account.status
                             ? "border-emerald-600 text-emerald-700 bg-emerald-500/30 shadow-md border-2"
                             : "border-amber-600 text-amber-700 bg-amber-500/30 shadow-md border-2"
                           : account.status
                             ? "border-emerald-500/40 text-emerald-600/70 hover:bg-emerald-500/10 hover:border-emerald-500/60 hover:text-emerald-600"
                             : "border-amber-500/40 text-amber-600/70 hover:bg-amber-500/10 hover:border-amber-500/60 hover:text-amber-600"
-                      }`}
+                        }`}
                       onClick={() => onToggleStatus(account)}
                       disabled={updatingStatusIds.has(account.id)}
                       data-testid={`button-toggle-status-${account.id}`}
@@ -490,7 +484,7 @@ export default function AccountTable({
         )}
       </div>
 
-      <div className="border-t border-border/70 bg-muted/30 px-4 py-4 sm:px-6">
+      <div className="sticky bottom-0 z-10 border-t border-b border-border/70 bg-muted px-4 py-4 shadow-sm sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-center text-sm text-muted-foreground sm:text-left">
             Hiển thị <span className="font-semibold text-card-foreground">{displayStart}-{displayEnd}</span> trên tổng
@@ -529,4 +523,3 @@ export default function AccountTable({
     </div>
   );
 }
-

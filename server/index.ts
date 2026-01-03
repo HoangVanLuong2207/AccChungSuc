@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
-import { pool } from "./db"; 
+import { pool } from "./db";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -14,19 +14,30 @@ const app = express();
 // Trust the first proxy (important for Render and other cloud platforms)
 app.set('trust proxy', 1);
 
-// Enable CORS for Socket.IO if needed
-if (process.env.NODE_ENV === 'production') {
-  app.use((req, res, next) => {
-    // Allow Socket.IO handshake requests
-    if (req.path.startsWith('/socket.io')) {
-      res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    }
-    next();
-  });
-}
+// CORS configuration for cross-origin requests (Firebase -> Render)
+const ALLOWED_ORIGINS = [
+  'https://accchungsuc.web.app',
+  'https://accchungsuc.firebaseapp.com',
+  'http://localhost:5173',
+  'http://localhost:5000',
+];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  }
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  next();
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -66,6 +77,7 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-domain
     maxAge: 1000 * 60 * 60 * 24 // 1 day
   }
 }));
@@ -110,7 +122,7 @@ app.use((req, res, next) => {
 
     // Always return JSON, never HTML
     if (!res.headersSent) {
-      res.status(status).json({ 
+      res.status(status).json({
         message,
         error: err.name || 'Error',
         ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
@@ -124,7 +136,7 @@ app.use((req, res, next) => {
     if (!res.headersSent) {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
-      res.status(status).json({ 
+      res.status(status).json({
         message,
         error: err.name || 'Error',
         ...(process.env.NODE_ENV === 'development' && { stack: err.stack })

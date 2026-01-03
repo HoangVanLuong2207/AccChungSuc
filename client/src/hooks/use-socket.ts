@@ -15,14 +15,15 @@ export function useSocket() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const origin = window.location.origin;
-    console.log("[Socket.IO] Initializing connection to:", origin);
-    
+    // Use API base URL from env (for Render backend) or current origin
+    const socketUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+    console.log("[Socket.IO] Initializing connection to:", socketUrl);
+
     // Create Socket.IO connection
     // For production (Render), use polling first then upgrade to websocket
     const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-    
-    const socket = io(origin, {
+
+    const socket = io(socketUrl, {
       // Try polling first for better compatibility with reverse proxies (Render)
       transports: isProduction ? ["polling", "websocket"] : ["websocket", "polling"],
       reconnection: true,
@@ -73,15 +74,15 @@ export function useSocket() {
     // Listen for account status updates
     socket.on("account-status-updated", (data: AccountStatusUpdateEvent) => {
       console.log("[Socket.IO] ✅ Received account-status-updated event:", data);
-      
+
       const { entityType, accountIds, status } = data;
-      
+
       // Update React Query cache for the affected entity
       const listKey = entityType === "accounts" ? "/api/accounts" : "/api/acclogs";
       const statsKey = entityType === "accounts" ? "/api/accounts/stats" : "/api/acclogs/stats";
-      
+
       console.log(`[Socket.IO] Updating cache for ${entityType}, accountIds:`, accountIds, "status:", status);
-      
+
       // Update the accounts/acclogs list in cache
       queryClient.setQueryData<Account[] | AccLog[]>(listKey, (oldData) => {
         if (!oldData) {
@@ -89,7 +90,7 @@ export function useSocket() {
           queryClient.invalidateQueries({ queryKey: [listKey] });
           return oldData;
         }
-        
+
         const updatedTimestamp = new Date(data.timestamp);
         const updated = oldData.map((item) => {
           if (accountIds.includes(item.id)) {
@@ -98,11 +99,11 @@ export function useSocket() {
           }
           return item;
         });
-        
+
         console.log(`[Socket.IO] Cache updated successfully for ${listKey}`);
         return updated;
       });
-      
+
       // Invalidate stats to refetch updated statistics
       queryClient.invalidateQueries({ queryKey: [statsKey] });
       console.log(`[Socket.IO] Invalidated stats query: ${statsKey}`);

@@ -2749,7 +2749,7 @@ export default function Dashboard() {
                 onEditTag={(record) => handleOpenTagModalForAccount(record as Account)}
               />
 
-              <div className="space-y-6">
+              <div className="space-y-6 sticky top-0 z-20 self-start">
                 <BulkActionsCard
                   label={ENTITY_CONFIG.accounts.label}
                   selectionCount={entityUi.accounts.selectedIds.length}
@@ -2815,7 +2815,7 @@ export default function Dashboard() {
                 onLevelFilterChange={handleLogLevelFilterChange}
               />
 
-              <div className="space-y-6">
+              <div className="space-y-6 sticky top-0 z-20 self-start">
                 <BulkActionsCard
                   label={ENTITY_CONFIG.logs.label}
                   selectionCount={entityUi.logs.selectedIds.length}
@@ -3060,6 +3060,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-
-
