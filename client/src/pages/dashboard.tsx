@@ -1563,16 +1563,16 @@ function ImportPipelineAssistant({ entity, onImport, isImporting, progress }: Im
 
         <div className="space-y-3 rounded-lg border border-border/70 bg-background/60 p-4">
           <div>
-            <Label className="text-xs font-semibold uppercase text-muted-foreground">Nhập text (user|pass|lv)</Label>
+            <Label className="text-xs font-semibold uppercase text-muted-foreground">Nhập text (user|pass|lv hoặc user:pass:lv)</Label>
             <textarea
               className="w-full mt-2 p-3 min-h-[100px] rounded-md border border-input bg-background text-sm font-mono resize-y"
-              placeholder="user1|pass1|lv10&#10;user2|pass2|lv25&#10;user3|pass3"
+              placeholder="user1|pass1|lv10&#10;user2:pass2:lv25&#10;user3|pass3"
               value={sheetUrl}
               onChange={(event) => setSheetUrl(event.target.value)}
               disabled={loadingSource || isImporting}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Mỗi dòng 1 tài khoản. Format: user|pass|lv (lv có thể bỏ qua)
+              Mỗi dòng 1 tài khoản. Format: user|pass|lv hoặc user:pass:lv (lv có thể bỏ qua)
             </p>
             <Button
               size="sm"
@@ -1585,7 +1585,8 @@ function ImportPipelineAssistant({ entity, onImport, isImporting, progress }: Im
                   // Parse text format directly
                   const lines = sheetUrl.split('\n').map((line: string) => line.trim()).filter((line: string) => line.length > 0);
                   const rows = lines.map((line: string) => {
-                    const parts = line.split('|').map((p: string) => p.trim());
+                    // Support both | and : as delimiters
+                    const parts = line.split(/[|:]/).map((p: string) => p.trim());
                     const username = parts[0] || '';
                     const password = parts[1] || '';
                     let lv = 0;

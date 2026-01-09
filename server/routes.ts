@@ -659,14 +659,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Import accounts from text format: user|pass|lv (one per line)
+  // Import accounts from text format: user|pass|lv or user:pass:lv (one per line)
   app.post("/api/accounts/import-text", isAuthenticated, async (req, res) => {
     try {
       const { text } = z.object({
         text: z.string().min(1),
       }).parse(req.body);
 
-      // Parse text format: user|pass|lv or user|pass (lv is optional)
+      // Parse text format: user|pass|lv or user:pass:lv (lv is optional)
       const lines = text.split('\n').map((line: string) => line.trim()).filter((line: string) => line.length > 0);
 
       if (lines.length === 0) {
@@ -681,10 +681,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parseErrors: Array<{ line: number; content: string; error: string }> = [];
 
       lines.forEach((line: string, index: number) => {
-        const parts = line.split('|').map((p: string) => p.trim());
+        // Support both | and : as delimiters
+        const parts = line.split(/[|:]/).map((p: string) => p.trim());
 
         if (parts.length < 2) {
-          parseErrors.push({ line: index + 1, content: line, error: "Định dạng không hợp lệ (cần ít nhất user|pass)" });
+          parseErrors.push({ line: index + 1, content: line, error: "Định dạng không hợp lệ (cần ít nhất user|pass hoặc user:pass)" });
           return;
         }
 

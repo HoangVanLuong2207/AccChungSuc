@@ -77,14 +77,14 @@ export default function ImportSection({
             <Textarea
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
-              placeholder="user1|pass1|lv10&#10;user2|pass2|lv25&#10;user3|pass3"
+              placeholder="user1|pass1|lv10&#10;user2:pass2:lv25&#10;user3|pass3"
               className="min-h-[120px] font-mono text-sm"
               data-testid="textarea-import-accounts"
             />
           </div>
 
           <div className="overflow-x-auto rounded-md bg-muted p-3 text-xs text-muted-foreground">
-            <strong>Format:</strong> <code className="font-mono">user|pass|lvX</code><br />
+            <strong>Format:</strong> <code className="font-mono">user|pass|lv</code> hoặc <code className="font-mono">user:pass:lv</code><br />
             <span className="text-xs opacity-75">Mỗi dòng 1 tài khoản. Level có thể bỏ qua.</span>
           </div>
 
