@@ -1,6 +1,7 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Upload, Plus, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +15,7 @@ interface ImportSectionLabels {
 
 interface ImportSectionProps {
   className?: string;
-  onImport: (file: File) => Promise<void> | void;
+  onImportText: (text: string) => Promise<void> | void;
   isImporting: boolean;
   stats?: {
     total: number;
@@ -27,7 +28,7 @@ interface ImportSectionProps {
 }
 
 export default function ImportSection({
-  onImport,
+  onImportText,
   isImporting,
   stats,
   onUpdateAll,
@@ -35,8 +36,7 @@ export default function ImportSection({
   labels,
   className,
 }: ImportSectionProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [textInput, setTextInput] = useState("");
 
   const {
     importTitle = "Import chung sức",
@@ -46,29 +46,20 @@ export default function ImportSection({
     inactiveLabel = "Tạm dừng",
   } = labels ?? {};
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-    }
-  };
-
   const handleImport = async () => {
-    if (!selectedFile) {
+    if (!textInput.trim()) {
       return;
     }
 
     try {
-      await onImport(selectedFile);
+      await onImportText(textInput);
+      setTextInput("");
     } catch (error) {
       console.error('Failed to import accounts', error);
-    } finally {
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
+
+  const lineCount = textInput.trim() ? textInput.trim().split('\n').filter(line => line.trim()).length : 0;
 
   return (
     <div className={cn("w-full lg:col-span-1", className)}>
@@ -77,44 +68,30 @@ export default function ImportSection({
           <Upload className="h-5 w-5 text-primary" />
           {importTitle}
         </h2>
-        
+
         <div className="space-y-4">
           <div>
             <Label className="block text-sm font-medium text-muted-foreground mb-2">
-              Chọn file JavaScript
+              Nhập danh sách tài khoản ({lineCount} dòng)
             </Label>
-            <div className="relative">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".js"
-                onChange={handleFileChange}
-                className="block w-full text-sm text-muted-foreground
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-md file:border-0
-                  file:text-sm file:font-medium
-                  file:bg-primary file:text-primary-foreground
-                  hover:file:bg-primary/80
-                  transition-colors cursor-pointer"
-                data-testid="input-import-file"
-              />
-            </div>
+            <Textarea
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              placeholder="user1|pass1|lv10&#10;user2|pass2|lv25&#10;user3|pass3"
+              className="min-h-[120px] font-mono text-sm"
+              data-testid="textarea-import-accounts"
+            />
           </div>
-          
+
           <div className="overflow-x-auto rounded-md bg-muted p-3 text-xs text-muted-foreground">
-            <strong>Format file:</strong><br />
-            <code className="font-mono text-xs">
-              [<br />
-              &nbsp;&nbsp;{`{"username": "user1", "password": "pass1", "LV": 10},`}<br />
-              &nbsp;&nbsp;{`{"username": "user2", "password": "pass2", "LV": 25}`}<br />
-              ]
-            </code>
+            <strong>Format:</strong> <code className="font-mono">user|pass|lvX</code><br />
+            <span className="text-xs opacity-75">Mỗi dòng 1 tài khoản. Level có thể bỏ qua.</span>
           </div>
-          
+
           <Button
             className="w-full"
             onClick={handleImport}
-            disabled={!selectedFile || isImporting}
+            disabled={!textInput.trim() || isImporting}
             data-testid="button-import-accounts"
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -177,12 +154,3 @@ export default function ImportSection({
     </div>
   );
 }
-
-
-
-
-
-
-
-
-

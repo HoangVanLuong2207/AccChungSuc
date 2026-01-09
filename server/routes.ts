@@ -107,27 +107,27 @@ function emitAccountStatusUpdate(accountIds: number[], status: boolean, entityTy
     console.warn(`[Socket.IO] Cannot emit account-status-updated: Socket.IO not initialized yet`);
     return;
   }
-  
+
   const connectedClients = io.sockets.sockets.size;
   console.log(`[Socket.IO] Emitting account-status-updated: ${entityType}, ids: ${accountIds.join(", ")}, status: ${status}, connected clients: ${connectedClients}`);
-  
+
   io.emit("account-status-updated", {
     entityType,
     accountIds,
     status,
     timestamp: new Date().toISOString(),
   });
-  
+
   console.log(`[Socket.IO] Successfully emitted account-status-updated event`);
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint - for keeping Render alive
   app.get("/api/health", (_req, res) => {
-    res.json({ 
-      status: "ok", 
+    res.json({
+      status: "ok",
       timestamp: new Date().toISOString(),
-      message: "Server is running" 
+      message: "Server is running"
     });
   });
 
@@ -166,16 +166,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/accounts/status-all", isAuthenticated, async (req, res) => {
     try {
       const body = z.object({ status: z.boolean() }).parse(req.body);
-      
+
       // Get current accounts to check previous status
       const allAccounts = await storage.getAllAccounts();
-      
+
       const updatedCount = await storage.updateAllAccountStatuses(body.status);
-      
+
       // Emit real-time update
       const allAccountIds = allAccounts.map(acc => acc.id);
       emitAccountStatusUpdate(allAccountIds, body.status, "accounts");
-      
+
       // Track revenue when accounts change from ON to OFF (accounts đã được sử dụng xong)
       if (body.status === false) {
         try {
@@ -185,9 +185,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const accountsThatChangedFromOnToOff = allAccounts.filter(
               (acc) => acc.status === true // Was ON before update
             );
-            
+
             console.log(`[Revenue] Updating ${accountsThatChangedFromOnToOff.length} accounts from ON to OFF, session ${activeSession.id}, price ${activeSession.pricePerAccount}`);
-            
+
             for (const account of accountsThatChangedFromOnToOff) {
               const revenueRecord = await storage.createRevenueRecord({
                 sessionId: activeSession.id,
@@ -205,7 +205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Don't fail the request if revenue tracking fails
         }
       }
-      
+
       res.json({ updated: updatedCount, status: body.status });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -223,16 +223,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: z.boolean(),
         })
         .parse(req.body);
-      
+
       // Get current accounts to check previous status
       const allAccounts = await storage.getAllAccounts();
       const accountsToUpdate = allAccounts.filter((acc) => body.ids.includes(acc.id));
-      
+
       const updatedCount = await storage.updateSelectedAccountStatuses(body.ids, body.status);
-      
+
       // Emit real-time update
       emitAccountStatusUpdate(body.ids, body.status, "accounts");
-      
+
       // Track revenue when accounts change from ON to OFF (accounts đã được sử dụng xong)
       if (body.status === false) {
         try {
@@ -241,9 +241,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const accountsThatChangedFromOnToOff = accountsToUpdate.filter(
               (acc) => acc.status && !body.status
             );
-            
+
             console.log(`[Revenue] Updating ${accountsThatChangedFromOnToOff.length} selected accounts from ON to OFF, session ${activeSession.id}, price ${activeSession.pricePerAccount}`);
-            
+
             for (const account of accountsThatChangedFromOnToOff) {
               const revenueRecord = await storage.createRevenueRecord({
                 sessionId: activeSession.id,
@@ -261,7 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Don't fail the request if revenue tracking fails
         }
       }
-      
+
       res.json({ updated: updatedCount, status: body.status });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -396,18 +396,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { status } = updateAccountSchema.parse(req.body);
-      
+
       // Get current account to check previous status
       const accounts = await storage.getAllAccounts();
       const currentAccount = accounts.find((acc) => acc.id === id);
-      
+
       if (!currentAccount) {
         return res.status(404).json({ message: "Account not found" });
       }
 
       const previousStatus = currentAccount.status;
       const account = await storage.updateAccountStatus(id, status!);
-      
+
       if (!account) {
         return res.status(404).json({ message: "Account not found" });
       }
@@ -436,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Don't fail the request if revenue tracking fails
         }
       }
-      
+
       res.json(account);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -496,11 +496,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const success = await storage.deleteAccount(id);
-      
+
       if (!success) {
         return res.status(404).json({ message: "Account not found" });
       }
-      
+
       res.json({ message: "Account deleted." });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete account" });
@@ -659,6 +659,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import accounts from text format: user|pass|lv (one per line)
+  app.post("/api/accounts/import-text", isAuthenticated, async (req, res) => {
+    try {
+      const { text } = z.object({
+        text: z.string().min(1),
+      }).parse(req.body);
+
+      // Parse text format: user|pass|lv or user|pass (lv is optional)
+      const lines = text.split('\n').map((line: string) => line.trim()).filter((line: string) => line.length > 0);
+
+      if (lines.length === 0) {
+        return res.status(400).json({ message: "Không có dữ liệu để import" });
+      }
+
+      if (lines.length > 1000) {
+        return res.status(400).json({ message: "Quá nhiều tài khoản. Giới hạn 1000 tài khoản mỗi lần import" });
+      }
+
+      const records: Array<{ username: string; password: string; lv: number }> = [];
+      const parseErrors: Array<{ line: number; content: string; error: string }> = [];
+
+      lines.forEach((line: string, index: number) => {
+        const parts = line.split('|').map((p: string) => p.trim());
+
+        if (parts.length < 2) {
+          parseErrors.push({ line: index + 1, content: line, error: "Định dạng không hợp lệ (cần ít nhất user|pass)" });
+          return;
+        }
+
+        const username = parts[0];
+        const password = parts[1];
+        let lv = 0;
+
+        if (parts.length >= 3) {
+          // Parse level: lv10, LV10, 10, etc.
+          const lvString = parts[2].toLowerCase().replace(/^lv/, '').trim();
+          const parsedLv = parseInt(lvString, 10);
+          if (!isNaN(parsedLv) && parsedLv >= 0) {
+            lv = parsedLv;
+          }
+        }
+
+        if (!username) {
+          parseErrors.push({ line: index + 1, content: line, error: "Thiếu username" });
+          return;
+        }
+
+        if (!password || password.length < 4) {
+          parseErrors.push({ line: index + 1, content: line, error: "Password quá ngắn (tối thiểu 4 ký tự)" });
+          return;
+        }
+
+        records.push({ username, password, lv });
+      });
+
+      if (records.length === 0) {
+        return res.status(400).json({
+          message: "Không có dữ liệu hợp lệ để import",
+          parseErrors
+        });
+      }
+
+      // Prefetch existing usernames to avoid repeated duplicate errors
+      const existingAccounts = await storage.getAllAccounts();
+      const existingSet = new Set(existingAccounts.map((a) => (a.username ?? '').trim()));
+
+      const { createdRecords, errors } = await processImportRecords(
+        records,
+        (record) => insertAccountSchema.parse(normalizeLevelField(record)),
+        (data) => storage.createAccount(data),
+        {
+          existingUsernames: existingSet,
+          normalizeUsername: (u) => (u ?? '').trim(),
+        }
+      );
+
+      res.json({
+        imported: createdRecords.length,
+        errors: errors.length + parseErrors.length,
+        accounts: createdRecords,
+        errorDetails: errors,
+        parseErrors,
+        sourceName: "Text Import",
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Dữ liệu không hợp lệ", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to import accounts" });
+      }
+    }
+  });
+
   // Get account statistics
   app.get("/api/accounts/stats", isAuthenticated, async (req, res) => {
     try {
@@ -675,11 +768,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const body = z.object({ status: z.boolean() }).parse(req.body);
       const allLogs = await storage.getAllAccLogs();
       const updatedCount = await storage.updateAllAccLogStatuses(body.status);
-      
+
       // Emit real-time update
       const allLogIds = allLogs.map(log => log.id);
       emitAccountStatusUpdate(allLogIds, body.status, "acclogs");
-      
+
       res.json({ updated: updatedCount, status: body.status });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -698,10 +791,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .parse(req.body);
       const updatedCount = await storage.updateSelectedAccLogStatuses(body.ids, body.status);
-      
+
       // Emit real-time update
       emitAccountStatusUpdate(body.ids, body.status, "acclogs");
-      
+
       res.json({ updated: updatedCount, status: body.status });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -930,22 +1023,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error in /api/revenue/set-price:', error);
       console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
-      
+
       // Ensure we always return JSON
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          message: "Invalid data", 
+        return res.status(400).json({
+          message: "Invalid data",
           errors: error.errors,
-          details: error.message 
+          details: error.message
         });
       }
-      
+
       const errorMessage = error instanceof Error ? error.message : "Failed to create live session";
       const errorDetails = error instanceof Error ? error.stack : undefined;
-      
-      return res.status(500).json({ 
+
+      return res.status(500).json({
         message: errorMessage,
-        details: errorDetails 
+        details: errorDetails
       });
     }
   });
@@ -1000,9 +1093,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const revenue = await storage.getCurrentSessionRevenue(session.id);
       console.log(`[Revenue] Current session revenue for session ${session.id} (${session.sessionName}):`, revenue);
       console.log(`[Revenue] Session details:`, { id: session.id, sessionName: session.sessionName, pricePerAccount: session.pricePerAccount });
-      
+
       // Ensure we return the correct structure
-      const response = { 
+      const response = {
         session: {
           id: session.id,
           sessionName: session.sessionName,
@@ -1015,7 +1108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           accountCount: revenue.accountCount || 0,
         }
       };
-      
+
       console.log(`[Revenue] Response:`, response);
       res.json(response);
     } catch (error) {
@@ -1025,11 +1118,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
-  
+
   // Initialize Socket.IO
   console.log(`[Socket.IO] Initializing Socket.IO server...`);
   const isProduction = process.env.NODE_ENV === 'production';
-  
+
   io = new SocketIOServer(httpServer, {
     cors: {
       origin: isProduction ? true : true, // Allow all origins (will be restricted by credentials)
@@ -1059,7 +1152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Socket.IO connection handling
   io.on("connection", (socket) => {
     console.log(`[Socket.IO] Client connected: ${socket.id}, total clients: ${io?.sockets.sockets.size || 0}`);
-    
+
     socket.on("disconnect", (reason) => {
       console.log(`[Socket.IO] Client disconnected: ${socket.id}, reason: ${reason}, remaining clients: ${io?.sockets.sockets.size || 0}`);
     });

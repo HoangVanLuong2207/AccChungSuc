@@ -562,7 +562,7 @@ function copyToClipboard(
   if (setActiveButtons) {
     setActiveButtons((prev) => new Set(prev).add(buttonKey));
   }
-  
+
   navigator.clipboard
     .writeText(value)
     .then(() => {
@@ -1076,7 +1076,7 @@ function ActivityTimeline({ data, hasActivity }: ActivityTimelineProps) {
           </ChartContainer>
         ) : (
           <div className="flex h-[220px] items-center justify-center rounded-md border border-dashed border-border/70 text-sm text-muted-foreground">
-           Chưa có hoạt động trong 14 ngày gần nhất
+            Chưa có hoạt động trong 14 ngày gần nhất
           </div>
         )}
       </CardContent>
@@ -1368,16 +1368,16 @@ function BulkActionsCard({
           className="w-full"
           onClick={onDeleteSelected}
           disabled={disableDeleteSelected}
-        > 
-           Xóa mục đã chọn 
+        >
+          Xóa mục đã chọn
         </Button>
         <Button
-            size="sm"
+          size="sm"
           variant="destructive"
           className="w-full"
           onClick={onDeleteAll}
         >
-         Xóa toàn bộ {label.toLowerCase()}
+          Xóa toàn bộ {label.toLowerCase()}
         </Button>
       </CardContent>
     </Card>
@@ -1563,26 +1563,58 @@ function ImportPipelineAssistant({ entity, onImport, isImporting, progress }: Im
 
         <div className="space-y-3 rounded-lg border border-border/70 bg-background/60 p-4">
           <div>
-            <Label className="text-xs font-semibold uppercase text-muted-foreground">Upload file (CSV/XLSX/JSON/JS)</Label>
-            <Input type="file" accept=".csv,.txt,.xls,.xlsx,.json,.js,.ts" disabled={loadingSource || isImporting} onChange={handleFileChange} />
+            <Label className="text-xs font-semibold uppercase text-muted-foreground">Nhập text (user|pass|lv)</Label>
+            <textarea
+              className="w-full mt-2 p-3 min-h-[100px] rounded-md border border-input bg-background text-sm font-mono resize-y"
+              placeholder="user1|pass1|lv10&#10;user2|pass2|lv25&#10;user3|pass3"
+              value={sheetUrl}
+              onChange={(event) => setSheetUrl(event.target.value)}
+              disabled={loadingSource || isImporting}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Mỗi dòng 1 tài khoản. Format: user|pass|lv (lv có thể bỏ qua)
+            </p>
+            <Button
+              size="sm"
+              className="mt-2"
+              onClick={async () => {
+                if (!sheetUrl.trim()) return;
+                setLoadingSource(true);
+                setError(null);
+                try {
+                  // Parse text format directly
+                  const lines = sheetUrl.split('\n').map((line: string) => line.trim()).filter((line: string) => line.length > 0);
+                  const rows = lines.map((line: string) => {
+                    const parts = line.split('|').map((p: string) => p.trim());
+                    const username = parts[0] || '';
+                    const password = parts[1] || '';
+                    let lv = 0;
+                    if (parts.length >= 3) {
+                      const lvString = parts[2].toLowerCase().replace(/^lv/, '').trim();
+                      const parsedLv = parseInt(lvString, 10);
+                      if (!isNaN(parsedLv) && parsedLv >= 0) lv = parsedLv;
+                    }
+                    return { username, password, lv, LV: lv };
+                  });
+                  if (rows.length === 0) throw new Error("Không có dữ liệu");
+                  setRawRows(rows);
+                  setSourceName("Text Input");
+                  setStep(2);
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Lỗi parse text");
+                } finally {
+                  setLoadingSource(false);
+                }
+              }}
+              disabled={!sheetUrl.trim() || loadingSource || isImporting}
+            >
+              Parse text
+            </Button>
           </div>
           <Separator />
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase text-muted-foreground">Hoặc dùng Google Sheets</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="https://docs.google.com/.../export?format=csv"
-                value={sheetUrl}
-                onChange={(event) => setSheetUrl(event.target.value)}
-                disabled={loadingSource || isImporting}
-              />
-              <Button size="sm" onClick={handleLoadSheet} disabled={!sheetUrl || loadingSource || isImporting}>
-                Tải
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Gợi ý: thêm cuối đường dẫn "/export?format=csv" để tải nhanh
-            </p>
+          <div>
+            <Label className="text-xs font-semibold uppercase text-muted-foreground">Upload file (CSV/JSON/JS)</Label>
+            <Input type="file" accept=".csv,.txt,.json,.js,.ts" disabled={loadingSource || isImporting} onChange={handleFileChange} />
           </div>
         </div>
 
@@ -1854,7 +1886,7 @@ export default function Dashboard() {
   const logsQuery = useQuery<AccLog[]>({ queryKey: [ENTITY_CONFIG.logs.listKey] });
   const accountStatsQuery = useQuery<SummaryStats | null>({ queryKey: [ENTITY_CONFIG.accounts.statsKey] });
   const logStatsQuery = useQuery<SummaryStats | null>({ queryKey: [ENTITY_CONFIG.logs.statsKey] });
-  
+
   type RevenueStats = Array<{ date: string; revenue: number; accountCount: number }>;
   const revenueStatsQuery = useQuery<RevenueStats>({
     queryKey: ["/api/revenue/stats"],
@@ -1868,7 +1900,7 @@ export default function Dashboard() {
       return apiRequest<RevenueStats>("GET", `/api/revenue/stats?${params.toString()}`);
     },
   });
-  
+
   const activeSessionQuery = useQuery<{ id: number; sessionName: string; pricePerAccount: number; createdAt: Date; updatedAt: Date } | null>({
     queryKey: ["/api/revenue/active-session"],
     queryFn: async () => {
@@ -2222,17 +2254,17 @@ export default function Dashboard() {
     }
 
     const mutation = entity === "accounts" ? accountMutations.toggleStatusMutation : logMutations.toggleStatusMutation;
-    
+
     // Save previous status before toggle
     const previousStatus = record.status;
     const newStatus = !record.status;
     const recordLabel = record.username || `#${record.id}`;
     const nextStatusLabel = newStatus ? "ON" : "OFF";
     const entityLabel = entity === "accounts" ? "Tài khoản" : "Acc log";
-    
+
     // Add to updating set
     setUpdatingStatusIds((prev) => new Set(prev).add(record.id));
-    
+
     // Show loading toast for this record
     const pendingToast = toast({
       title: "Đang cập nhật",
@@ -2623,7 +2655,7 @@ export default function Dashboard() {
           currentSessionRevenue={currentSessionRevenueQuery.data ?? null}
         />
 
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-border/70 bg-card/50 px-4 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-border/70 bg-card/50 px-4 py-4">
           <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
             <Badge variant="outline" className="gap-1 rounded-full px-3 py-1">
               <CalendarClock className="mr-1 h-3.5 w-3.5" />
