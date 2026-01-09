@@ -122,6 +122,15 @@ function emitAccountStatusUpdate(accountIds: number[], status: boolean, entityTy
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint - for keeping Render alive
+  app.get("/api/health", (_req, res) => {
+    res.json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(),
+      message: "Server is running" 
+    });
+  });
+
   // Auth routes
   app.post("/api/login", async (req, res) => {
     console.log('--- Login Request Received ---');
