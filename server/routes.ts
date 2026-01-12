@@ -131,6 +131,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Simple ping endpoint for cron jobs
+  app.get("/ping", (_req, res) => {
+    res.send("pong");
+  });
+
   // Auth routes
   app.post("/api/login", async (req, res) => {
     console.log('--- Login Request Received ---');
