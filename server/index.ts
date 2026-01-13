@@ -1,21 +1,56 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
-import { pool } from "./db";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+// Validate SESSION_SECRET in production
+const sessionSecret = process.env.SESSION_SECRET || 'a-default-secret-for-development';
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32 || process.env.SESSION_SECRET.includes('default')) {
+    console.error('FATAL: SESSION_SECRET must be at least 32 characters and not contain "default" in production!');
+    process.exit(1);
+  }
+}
+
 // Log để kiểm tra biến môi trường
-console.log('DATABASE_URL:', process.env.DATABASE_URL ? '***[HIDDEN]***' : 'Not set');
+console.log('TURSO_DATABASE_URL:', process.env.TURSO_DATABASE_URL ? '***[HIDDEN]***' : 'Not set');
+
 
 const app = express();
 
 // Trust the first proxy (important for Render and other cloud platforms)
 app.set('trust proxy', 1);
 
+// Security headers with helmet
+app.use(helmet({
+  contentSecurityPolicy: process.env.NODE_ENV === 'production',
+  crossOriginEmbedderPolicy: false, // Required for Socket.IO
+}));
+
+// Global rate limiter - 1000 requests per 15 minutes
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  message: { message: "Quá nhiều request, vui lòng thử lại sau" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(globalLimiter);
+
+// Auth rate limiter - exported for use in routes
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10, // 10 login attempts per 15 minutes
+  message: { message: "Quá nhiều lần thử đăng nhập. Vui lòng thử lại sau 15 phút" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // CORS configuration for cross-origin requests (Firebase -> Render)
-const ALLOWED_ORIGINS = [
+export const ALLOWED_ORIGINS = [
   'https://accchungsuc.web.app',
   'https://accchungsuc.firebaseapp.com',
   'http://localhost:5173',
@@ -42,36 +77,15 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Session configuration
-const usePgSessionStore = process.env.NODE_ENV === 'production' || process.env.USE_PG_SESSION_STORE === 'true';
-let sessionStore: session.Store;
-
-if (usePgSessionStore) {
-  const PgStore = connectPgSimple(session);
-  try {
-    const pgStoreInstance = new PgStore({
-      pool,
-      tableName: 'user_sessions',
-      createTableIfMissing: true,
-    });
-
-    pgStoreInstance.on('error', (error) => {
-      console.error('Session store error:', error);
-    });
-
-    sessionStore = pgStoreInstance;
-  } catch (error) {
-    console.error('Failed to initialize Postgres session store, falling back to MemoryStore:', error);
-    sessionStore = new session.MemoryStore();
-  }
-} else {
-  console.warn('Using in-memory session store. Set USE_PG_SESSION_STORE=true to enable Postgres-backed sessions.');
-  sessionStore = new session.MemoryStore();
-}
+// Session configuration - using MemoryStore (simpler for Turso setup)
+// Note: Sessions will be lost on server restart. For production persistence,
+// consider using a compatible session store like Redis.
+console.log('Using in-memory session store');
+const sessionStore = new session.MemoryStore();
 
 app.use(session({
   store: sessionStore,
-  secret: process.env.SESSION_SECRET || 'a-default-secret-for-development',
+  secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   cookie: {

@@ -3,106 +3,104 @@ import { db } from "./db";
 import { randomUUID } from "crypto";
 import { eq, sql, inArray, desc, and, gte, lte } from "drizzle-orm";
 
-const ensureLevelColumnsPromise = (async () => {
+// Initialize tables for SQLite/Turso
+const ensureTablesPromise = (async () => {
   try {
-    await db.execute(sql`ALTER TABLE acclogs ADD COLUMN IF NOT EXISTS "lv" integer`);
-    await db.execute(sql`ALTER TABLE acclogs ALTER COLUMN "lv" SET DEFAULT 0`);
-    await db.execute(sql`UPDATE acclogs SET "lv" = 0 WHERE "lv" IS NULL`);
-    await db.execute(sql`ALTER TABLE acclogs ALTER COLUMN "lv" SET NOT NULL`);
-  } catch (error) {
-    console.error('Error ensuring lv column on acclogs:', error);
-  }
+    // Create accounts table
+    await db.run(sql`
+      CREATE TABLE IF NOT EXISTS accounts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        lv INTEGER NOT NULL DEFAULT 0,
+        status INTEGER NOT NULL DEFAULT 1,
+        tag TEXT,
+        champion TEXT,
+        skins TEXT NOT NULL DEFAULT '[]',
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
 
-  try {
-    await db.execute(sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS "lv" integer`);
-    await db.execute(sql`ALTER TABLE accounts ALTER COLUMN "lv" SET DEFAULT 0`);
-    await db.execute(sql`UPDATE accounts SET "lv" = 0 WHERE "lv" IS NULL`);
-    await db.execute(sql`ALTER TABLE accounts ALTER COLUMN "lv" SET NOT NULL`);
-  } catch (error) {
-    console.error('Error ensuring lv column on accounts:', error);
-  }
+    // Create acclogs table
+    await db.run(sql`
+      CREATE TABLE IF NOT EXISTS acclogs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        lv INTEGER NOT NULL DEFAULT 0,
+        status INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
 
-  // Add champion and skins columns for accounts
-  try {
-    await db.execute(sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS "champion" text`);
-  } catch (error) {
-    console.error('Error ensuring champion column on accounts:', error);
-  }
+    // Create users table
+    await db.run(sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL
+      )
+    `);
 
-  try {
-    await db.execute(sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS "skins" jsonb`);
-    await db.execute(sql`UPDATE accounts SET "skins" = '[]'::jsonb WHERE "skins" IS NULL`);
-    await db.execute(sql`ALTER TABLE accounts ALTER COLUMN "skins" SET NOT NULL`);
-  } catch (error) {
-    console.error('Error ensuring skins column on accounts:', error);
-  }
-
-  // Create clonereg table if not exists
-  try {
-    await db.execute(sql`
+    // Create clonereg table
+    await db.run(sql`
       CREATE TABLE IF NOT EXISTS clonereg (
-        id SERIAL PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
         champion TEXT,
-        champions JSONB NOT NULL DEFAULT '[]'::jsonb,
-        skins JSONB NOT NULL DEFAULT '[]'::jsonb,
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        champions TEXT NOT NULL DEFAULT '[]',
+        skins TEXT NOT NULL DEFAULT '[]',
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
     `);
-  } catch (error) {
-    console.error('Error ensuring clonereg table:', error);
-  }
 
-  // Ensure champions column exists for clonereg and is not null with default
-  try {
-    await db.execute(sql`ALTER TABLE clonereg ADD COLUMN IF NOT EXISTS "champions" jsonb`);
-    await db.execute(sql`UPDATE clonereg SET "champions" = '[]'::jsonb WHERE "champions" IS NULL`);
-    // Backfill champions from single champion field if present
-    await db.execute(sql`
-      UPDATE clonereg 
-      SET champions = CASE 
-        WHEN champions = '[]'::jsonb AND champion IS NOT NULL AND length(trim(champion)) > 0 
-        THEN jsonb_build_array(trim(champion)) 
-        ELSE champions 
-      END
-    `);
-    await db.execute(sql`ALTER TABLE clonereg ALTER COLUMN "champions" SET NOT NULL`);
-  } catch (error) {
-    console.error('Error ensuring champions column on clonereg:', error);
-  }
-
-  // Create live_sessions table if not exists
-  try {
-    await db.execute(sql`
+    // Create live_sessions table
+    await db.run(sql`
       CREATE TABLE IF NOT EXISTS live_sessions (
-        id SERIAL PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_name TEXT NOT NULL,
         price_per_account INTEGER NOT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
     `);
-  } catch (error) {
-    console.error('Error ensuring live_sessions table:', error);
-  }
 
-  // Create revenue_records table if not exists
-  try {
-    await db.execute(sql`
+    // Create revenue_records table
+    await db.run(sql`
       CREATE TABLE IF NOT EXISTS revenue_records (
-        id SERIAL PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id INTEGER REFERENCES live_sessions(id),
         account_id INTEGER NOT NULL REFERENCES accounts(id),
         price_per_account INTEGER NOT NULL,
         revenue INTEGER NOT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
     `);
+
+    console.log('✅ All SQLite tables created/verified');
   } catch (error) {
-    console.error('Error ensuring revenue_records table:', error);
+    console.error('Error ensuring SQLite tables:', error);
   }
 })();
+
+// Helper to parse JSON fields from SQLite text
+function parseJsonField<T>(value: unknown, defaultValue: T): T {
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return defaultValue;
+    }
+  }
+  if (Array.isArray(value)) return value as T;
+  return defaultValue;
+}
+
+// Helper to get ISO datetime string
+function nowIso(): string {
+  return new Date().toISOString();
+}
 
 interface IStorage {
   getAllAccounts(): Promise<Account[]>;
@@ -172,6 +170,9 @@ export class MemoryStorage implements IStorage {
   }
 
   async createAccount(insertAccount: InsertAccount): Promise<Account> {
+    const skinsValue = typeof insertAccount.skins === 'string'
+      ? insertAccount.skins
+      : JSON.stringify(insertAccount.skins ?? []);
     const account: Account = {
       id: this.accountIdCounter++,
       username: insertAccount.username,
@@ -180,10 +181,9 @@ export class MemoryStorage implements IStorage {
       status: true,
       tag: insertAccount.tag ?? null,
       champion: insertAccount.champion ?? null,
-      skins: Array.isArray(insertAccount.skins) ? insertAccount.skins : [],
-      updatedAt: new Date(),
+      skins: skinsValue,
+      updatedAt: nowIso(),
     };
-    // Enforce unique username in memory mode for consistency
     if (this.accountsData.some((a) => (a.username ?? '').trim() === (account.username ?? '').trim())) {
       throw new Error('unique_violation');
     }
@@ -193,35 +193,31 @@ export class MemoryStorage implements IStorage {
 
   async updateAccountStatus(id: number, status: boolean): Promise<Account | undefined> {
     const account = this.accountsData.find((item) => item.id === id);
-    if (!account) {
-      return undefined;
-    }
+    if (!account) return undefined;
     account.status = status;
-    account.updatedAt = new Date();
+    account.updatedAt = nowIso();
     return account;
   }
 
   async updateAccountDetails(id: number, updates: UpdateAccountDetails): Promise<Account | undefined> {
     const account = this.accountsData.find((item) => item.id === id);
-    if (!account) {
-      return undefined;
-    }
+    if (!account) return undefined;
     if (updates.username !== undefined) account.username = updates.username;
     if (updates.password !== undefined) account.password = updates.password;
     if (updates.lv !== undefined) account.lv = Number(updates.lv);
     if (Object.prototype.hasOwnProperty.call(updates, 'champion')) account.champion = updates.champion ?? null;
-    if (updates.skins !== undefined) account.skins = Array.isArray(updates.skins) ? updates.skins : [];
-    account.updatedAt = new Date();
+    if (updates.skins !== undefined) {
+      account.skins = typeof updates.skins === 'string' ? updates.skins : JSON.stringify(updates.skins);
+    }
+    account.updatedAt = nowIso();
     return account;
   }
 
   async updateAccountTag(id: number, tag: string | null): Promise<Account | undefined> {
     const account = this.accountsData.find((item) => item.id === id);
-    if (!account) {
-      return undefined;
-    }
+    if (!account) return undefined;
     account.tag = tag;
-    account.updatedAt = new Date();
+    account.updatedAt = nowIso();
     return account;
   }
 
@@ -231,16 +227,15 @@ export class MemoryStorage implements IStorage {
       this.accountsData.forEach((account) => {
         if (ids.includes(account.id)) {
           account.tag = tag;
-          account.updatedAt = new Date();
+          account.updatedAt = nowIso();
           updated += 1;
         }
       });
       return updated;
     }
-
     this.accountsData.forEach((account) => {
       account.tag = tag;
-      account.updatedAt = new Date();
+      account.updatedAt = nowIso();
     });
     return this.accountsData.length;
   }
@@ -266,14 +261,13 @@ export class MemoryStorage implements IStorage {
   async getAccountStats(): Promise<{ total: number; active: number; inactive: number }> {
     const total = this.accountsData.length;
     const active = this.accountsData.filter((item) => item.status).length;
-    const inactive = total - active;
-    return { total, active, inactive };
+    return { total, active, inactive: total - active };
   }
 
   async updateAllAccountStatuses(status: boolean): Promise<number> {
     this.accountsData.forEach((item) => {
       item.status = status;
-      item.updatedAt = new Date();
+      item.updatedAt = nowIso();
     });
     return this.accountsData.length;
   }
@@ -284,7 +278,7 @@ export class MemoryStorage implements IStorage {
     this.accountsData.forEach((item) => {
       if (targetIds.has(item.id)) {
         item.status = status;
-        item.updatedAt = new Date();
+        item.updatedAt = nowIso();
         updated += 1;
       }
     });
@@ -302,7 +296,7 @@ export class MemoryStorage implements IStorage {
       password: insertAccLog.password,
       lv: Number(insertAccLog.lv ?? 0),
       status: true,
-      updatedAt: new Date(),
+      updatedAt: nowIso(),
     };
     this.accLogsData.push(log);
     return log;
@@ -310,11 +304,9 @@ export class MemoryStorage implements IStorage {
 
   async updateAccLogStatus(id: number, status: boolean): Promise<AccLog | undefined> {
     const log = this.accLogsData.find((item) => item.id === id);
-    if (!log) {
-      return undefined;
-    }
+    if (!log) return undefined;
     log.status = status;
-    log.updatedAt = new Date();
+    log.updatedAt = nowIso();
     return log;
   }
 
@@ -339,14 +331,13 @@ export class MemoryStorage implements IStorage {
   async getAccLogStats(): Promise<{ total: number; active: number; inactive: number }> {
     const total = this.accLogsData.length;
     const active = this.accLogsData.filter((item) => item.status).length;
-    const inactive = total - active;
-    return { total, active, inactive };
+    return { total, active, inactive: total - active };
   }
 
   async updateAllAccLogStatuses(status: boolean): Promise<number> {
     this.accLogsData.forEach((item) => {
       item.status = status;
-      item.updatedAt = new Date();
+      item.updatedAt = nowIso();
     });
     return this.accLogsData.length;
   }
@@ -357,31 +348,32 @@ export class MemoryStorage implements IStorage {
     this.accLogsData.forEach((item) => {
       if (targetIds.has(item.id)) {
         item.status = status;
-        item.updatedAt = new Date();
+        item.updatedAt = nowIso();
         updated += 1;
       }
     });
     return updated;
   }
 
-  // CloneReg (manual) implementations
   async getAllCloneRegs(): Promise<CloneReg[]> {
     return [...this.cloneRegsData];
   }
 
   async createCloneReg(insertCloneReg: InsertCloneReg): Promise<CloneReg> {
+    const championsValue = typeof insertCloneReg.champions === 'string'
+      ? insertCloneReg.champions
+      : JSON.stringify(insertCloneReg.champions ?? []);
+    const skinsValue = typeof insertCloneReg.skins === 'string'
+      ? insertCloneReg.skins
+      : JSON.stringify(insertCloneReg.skins ?? []);
     const record: CloneReg = {
       id: this.cloneRegIdCounter++,
       username: insertCloneReg.username,
       password: insertCloneReg.password,
       champion: insertCloneReg.champion ?? null,
-      champions: Array.isArray((insertCloneReg as any).champions)
-        ? ((insertCloneReg as any).champions as string[])
-        : (insertCloneReg.champion && String(insertCloneReg.champion).trim().length > 0
-            ? [String(insertCloneReg.champion).trim()]
-            : []),
-      skins: Array.isArray(insertCloneReg.skins) ? insertCloneReg.skins : [],
-      updatedAt: new Date(),
+      champions: championsValue,
+      skins: skinsValue,
+      updatedAt: nowIso(),
     };
     this.cloneRegsData.push(record);
     return record;
@@ -393,12 +385,13 @@ export class MemoryStorage implements IStorage {
     if (updates.username !== undefined) record.username = updates.username;
     if (updates.password !== undefined) record.password = updates.password;
     if (Object.prototype.hasOwnProperty.call(updates, 'champion')) record.champion = updates.champion ?? null;
-    if ((updates as any).champions !== undefined) {
-      const champs = (updates as any).champions as unknown;
-      record.champions = Array.isArray(champs) ? champs.map((c) => String(c).trim()).filter(Boolean) : record.champions;
+    if (updates.champions !== undefined) {
+      record.champions = typeof updates.champions === 'string' ? updates.champions : JSON.stringify(updates.champions);
     }
-    if (updates.skins !== undefined) record.skins = Array.isArray(updates.skins) ? updates.skins : [];
-    record.updatedAt = new Date();
+    if (updates.skins !== undefined) {
+      record.skins = typeof updates.skins === 'string' ? updates.skins : JSON.stringify(updates.skins);
+    }
+    record.updatedAt = nowIso();
     return record;
   }
 
@@ -417,15 +410,14 @@ export class MemoryStorage implements IStorage {
       id: this.liveSessionIdCounter++,
       sessionName: session.sessionName,
       pricePerAccount: session.pricePerAccount,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
     };
     this.liveSessionsData.push(liveSession);
     return liveSession;
   }
 
   async getActiveLiveSession(): Promise<LiveSession | undefined> {
-    // Get the most recent session
     return this.liveSessionsData.length > 0
       ? this.liveSessionsData[this.liveSessionsData.length - 1]
       : undefined;
@@ -442,7 +434,7 @@ export class MemoryStorage implements IStorage {
       accountId: record.accountId,
       pricePerAccount: record.pricePerAccount,
       revenue: record.revenue,
-      createdAt: new Date(),
+      createdAt: nowIso(),
     };
     this.revenueRecordsData.push(revenueRecord);
     return revenueRecord;
@@ -450,40 +442,34 @@ export class MemoryStorage implements IStorage {
 
   async getRevenueStatsByDate(startDate: Date, endDate: Date): Promise<Array<{ date: string; revenue: number; accountCount: number }>> {
     const filtered = this.revenueRecordsData.filter(
-      (record) => record.createdAt >= startDate && record.createdAt <= endDate
+      (record) => new Date(record.createdAt) >= startDate && new Date(record.createdAt) <= endDate
     );
-
     const statsByDate = new Map<string, { revenue: number; accountCount: number }>();
-
     filtered.forEach((record) => {
-      const dateKey = record.createdAt.toISOString().split('T')[0];
+      const dateKey = new Date(record.createdAt).toISOString().split('T')[0];
       const existing = statsByDate.get(dateKey) || { revenue: 0, accountCount: 0 };
       statsByDate.set(dateKey, {
         revenue: existing.revenue + record.revenue,
         accountCount: existing.accountCount + 1,
       });
     });
-
     return Array.from(statsByDate.entries())
       .map(([date, stats]) => ({ date, ...stats }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
   async getCurrentSessionRevenue(sessionId: number): Promise<{ totalRevenue: number; accountCount: number }> {
-    const filtered = this.revenueRecordsData.filter(
-      (record) => record.sessionId === sessionId
-    );
-
-    const totalRevenue = filtered.reduce((sum, record) => sum + record.revenue, 0);
-    const accountCount = filtered.length;
-
-    return { totalRevenue, accountCount };
+    const filtered = this.revenueRecordsData.filter((record) => record.sessionId === sessionId);
+    return {
+      totalRevenue: filtered.reduce((sum, record) => sum + record.revenue, 0),
+      accountCount: filtered.length,
+    };
   }
 }
 
 
 export class DatabaseStorage implements IStorage {
-  private readonly schemaReady = ensureLevelColumnsPromise;
+  private readonly schemaReady = ensureTablesPromise;
 
   private async ensureSchema() {
     await this.schemaReady;
@@ -502,18 +488,24 @@ export class DatabaseStorage implements IStorage {
   async createAccount(insertAccount: InsertAccount): Promise<Account> {
     await this.ensureSchema();
     try {
-      const [account] = await db
+      const skinsValue = typeof insertAccount.skins === 'string'
+        ? insertAccount.skins
+        : JSON.stringify(insertAccount.skins ?? []);
+      const result = await db
         .insert(accounts)
-        .values({ ...insertAccount, lv: Number(insertAccount.lv ?? 0) })
+        .values({
+          ...insertAccount,
+          lv: Number(insertAccount.lv ?? 0),
+          skins: skinsValue,
+          updatedAt: nowIso(),
+        })
         .returning();
-      return account;
+      return result[0];
     } catch (error) {
       console.error('Error in createAccount:', error);
       const err = error as any;
       const message = (err && (err.message || err.toString())) || '';
-      const code = err?.code || err?.severity;
-      // Map Postgres unique constraint violations or similar to a recognizable token
-      if (code === '23505' || /duplicate key value|unique/i.test(message)) {
+      if (/UNIQUE constraint failed|unique/i.test(message)) {
         throw new Error('unique_violation');
       }
       throw new Error(message || 'Failed to create account');
@@ -525,7 +517,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const [account] = await db
         .update(accounts)
-        .set({ status, updatedAt: new Date() })
+        .set({ status, updatedAt: nowIso() })
         .where(eq(accounts.id, id))
         .returning();
       return account || undefined;
@@ -540,7 +532,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const [account] = await db
         .update(accounts)
-        .set({ tag, updatedAt: new Date() })
+        .set({ tag, updatedAt: nowIso() })
         .where(eq(accounts.id, id))
         .returning();
       return account || undefined;
@@ -553,12 +545,14 @@ export class DatabaseStorage implements IStorage {
   async updateAccountDetails(id: number, updates: UpdateAccountDetails): Promise<Account | undefined> {
     await this.ensureSchema();
     try {
-      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      const patch: Record<string, unknown> = { updatedAt: nowIso() };
       if (updates.username !== undefined) patch.username = updates.username;
       if (updates.password !== undefined) patch.password = updates.password;
       if (updates.lv !== undefined) patch.lv = Number(updates.lv);
       if (Object.prototype.hasOwnProperty.call(updates, 'champion')) patch.champion = updates.champion ?? null;
-      if (updates.skins !== undefined) patch.skins = Array.isArray(updates.skins) ? updates.skins : [];
+      if (updates.skins !== undefined) {
+        patch.skins = typeof updates.skins === 'string' ? updates.skins : JSON.stringify(updates.skins);
+      }
 
       const [account] = await db
         .update(accounts)
@@ -578,15 +572,12 @@ export class DatabaseStorage implements IStorage {
       if (ids && ids.length > 0) {
         const result = await db
           .update(accounts)
-          .set({ tag, updatedAt: new Date() })
+          .set({ tag, updatedAt: nowIso() })
           .where(inArray(accounts.id, ids));
-        return result.rowCount ?? 0;
+        return (result as any).rowsAffected ?? ids.length;
       }
-
-      const result = await db
-        .update(accounts)
-        .set({ tag, updatedAt: new Date() });
-      return result.rowCount ?? 0;
+      const result = await db.update(accounts).set({ tag, updatedAt: nowIso() });
+      return (result as any).rowsAffected ?? 0;
     } catch (error) {
       console.error('Error in updateMultipleAccountTags:', error);
       throw new Error('Failed to update account tags in database');
@@ -596,10 +587,8 @@ export class DatabaseStorage implements IStorage {
   async deleteAccount(id: number): Promise<boolean> {
     await this.ensureSchema();
     try {
-      const result = await db
-        .delete(accounts)
-        .where(eq(accounts.id, id));
-      return (result.rowCount ?? 0) > 0;
+      const result = await db.delete(accounts).where(eq(accounts.id, id));
+      return ((result as any).rowsAffected ?? 0) > 0;
     } catch (error) {
       console.error('Error in deleteAccount:', error);
       throw new Error('Failed to delete account from database');
@@ -608,14 +597,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMultipleAccounts(ids: number[]): Promise<number> {
     await this.ensureSchema();
-    if (ids.length === 0) {
-      return 0;
-    }
+    if (ids.length === 0) return 0;
     try {
-      const result = await db
-        .delete(accounts)
-        .where(inArray(accounts.id, ids));
-      return result.rowCount ?? 0;
+      const result = await db.delete(accounts).where(inArray(accounts.id, ids));
+      return (result as any).rowsAffected ?? 0;
     } catch (error) {
       console.error('Error in deleteMultipleAccounts:', error);
       throw new Error('Failed to delete multiple accounts from database');
@@ -626,7 +611,7 @@ export class DatabaseStorage implements IStorage {
     await this.ensureSchema();
     try {
       const result = await db.delete(accounts);
-      return result.rowCount ?? 0;
+      return (result as any).rowsAffected ?? 0;
     } catch (error) {
       console.error('Error in deleteAllAccounts:', error);
       throw new Error('Failed to delete all accounts from database');
@@ -639,19 +624,14 @@ export class DatabaseStorage implements IStorage {
       const [stats] = await db
         .select({
           total: sql<number>`count(*)`,
-          active: sql<number>`count(*) filter (where status = true)`,
-          inactive: sql<number>`count(*) filter (where status = false)`
+          active: sql<number>`sum(case when status = 1 then 1 else 0 end)`,
+          inactive: sql<number>`sum(case when status = 0 then 1 else 0 end)`
         })
         .from(accounts);
-
-      if (!stats) {
-        return { total: 0, active: 0, inactive: 0 };
-      }
-
       return {
-        total: Number(stats.total) || 0,
-        active: Number(stats.active) || 0,
-        inactive: Number(stats.inactive) || 0,
+        total: Number(stats?.total) || 0,
+        active: Number(stats?.active) || 0,
+        inactive: Number(stats?.inactive) || 0,
       };
     } catch (error) {
       console.error('Error in getAccountStats:', error);
@@ -662,11 +642,8 @@ export class DatabaseStorage implements IStorage {
   async updateAllAccountStatuses(status: boolean): Promise<number> {
     await this.ensureSchema();
     try {
-      await db.update(accounts).set({ status, updatedAt: new Date() });
-      const [row] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(accounts)
-        .where(eq(accounts.status, status));
+      await db.update(accounts).set({ status, updatedAt: nowIso() });
+      const [row] = await db.select({ count: sql<number>`count(*)` }).from(accounts);
       return row?.count ?? 0;
     } catch (error) {
       console.error('Error in updateAllAccountStatuses:', error);
@@ -676,15 +653,13 @@ export class DatabaseStorage implements IStorage {
 
   async updateSelectedAccountStatuses(ids: number[], status: boolean): Promise<number> {
     await this.ensureSchema();
-    if (ids.length === 0) {
-      return 0;
-    }
+    if (ids.length === 0) return 0;
     try {
       const result = await db
         .update(accounts)
-        .set({ status, updatedAt: new Date() })
+        .set({ status, updatedAt: nowIso() })
         .where(inArray(accounts.id, ids));
-      return result.rowCount ?? 0;
+      return (result as any).rowsAffected ?? ids.length;
     } catch (error) {
       console.error('Error in updateSelectedAccountStatuses:', error);
       throw new Error('Failed to update selected account statuses');
@@ -706,7 +681,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const [log] = await db
         .insert(accLogs)
-        .values({ ...insertAccLog, lv: Number(insertAccLog.lv ?? 0) })
+        .values({ ...insertAccLog, lv: Number(insertAccLog.lv ?? 0), updatedAt: nowIso() })
         .returning();
       return log;
     } catch (error) {
@@ -720,7 +695,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const [log] = await db
         .update(accLogs)
-        .set({ status, updatedAt: new Date() })
+        .set({ status, updatedAt: nowIso() })
         .where(eq(accLogs.id, id))
         .returning();
       return log || undefined;
@@ -733,10 +708,8 @@ export class DatabaseStorage implements IStorage {
   async deleteAccLog(id: number): Promise<boolean> {
     await this.ensureSchema();
     try {
-      const result = await db
-        .delete(accLogs)
-        .where(eq(accLogs.id, id));
-      return (result.rowCount ?? 0) > 0;
+      const result = await db.delete(accLogs).where(eq(accLogs.id, id));
+      return ((result as any).rowsAffected ?? 0) > 0;
     } catch (error) {
       console.error('Error in deleteAccLog:', error);
       throw new Error('Failed to delete acc log from database');
@@ -745,14 +718,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMultipleAccLogs(ids: number[]): Promise<number> {
     await this.ensureSchema();
-    if (ids.length === 0) {
-      return 0;
-    }
+    if (ids.length === 0) return 0;
     try {
-      const result = await db
-        .delete(accLogs)
-        .where(inArray(accLogs.id, ids));
-      return result.rowCount ?? 0;
+      const result = await db.delete(accLogs).where(inArray(accLogs.id, ids));
+      return (result as any).rowsAffected ?? 0;
     } catch (error) {
       console.error('Error in deleteMultipleAccLogs:', error);
       throw new Error('Failed to delete multiple acc logs from database');
@@ -763,7 +732,7 @@ export class DatabaseStorage implements IStorage {
     await this.ensureSchema();
     try {
       const result = await db.delete(accLogs);
-      return result.rowCount ?? 0;
+      return (result as any).rowsAffected ?? 0;
     } catch (error) {
       console.error('Error in deleteAllAccLogs:', error);
       throw new Error('Failed to delete all acc logs from database');
@@ -776,19 +745,14 @@ export class DatabaseStorage implements IStorage {
       const [stats] = await db
         .select({
           total: sql<number>`count(*)`,
-          active: sql<number>`count(*) filter (where status = true)`,
-          inactive: sql<number>`count(*) filter (where status = false)`
+          active: sql<number>`sum(case when status = 1 then 1 else 0 end)`,
+          inactive: sql<number>`sum(case when status = 0 then 1 else 0 end)`
         })
         .from(accLogs);
-
-      if (!stats) {
-        return { total: 0, active: 0, inactive: 0 };
-      }
-
       return {
-        total: Number(stats.total) || 0,
-        active: Number(stats.active) || 0,
-        inactive: Number(stats.inactive) || 0,
+        total: Number(stats?.total) || 0,
+        active: Number(stats?.active) || 0,
+        inactive: Number(stats?.inactive) || 0,
       };
     } catch (error) {
       console.error('Error in getAccLogStats:', error);
@@ -799,11 +763,8 @@ export class DatabaseStorage implements IStorage {
   async updateAllAccLogStatuses(status: boolean): Promise<number> {
     await this.ensureSchema();
     try {
-      await db.update(accLogs).set({ status, updatedAt: new Date() });
-      const [row] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(accLogs)
-        .where(eq(accLogs.status, status));
+      await db.update(accLogs).set({ status, updatedAt: nowIso() });
+      const [row] = await db.select({ count: sql<number>`count(*)` }).from(accLogs);
       return row?.count ?? 0;
     } catch (error) {
       console.error('Error in updateAllAccLogStatuses:', error);
@@ -813,15 +774,13 @@ export class DatabaseStorage implements IStorage {
 
   async updateSelectedAccLogStatuses(ids: number[], status: boolean): Promise<number> {
     await this.ensureSchema();
-    if (ids.length === 0) {
-      return 0;
-    }
+    if (ids.length === 0) return 0;
     try {
       const result = await db
         .update(accLogs)
-        .set({ status, updatedAt: new Date() })
+        .set({ status, updatedAt: nowIso() })
         .where(inArray(accLogs.id, ids));
-      return result.rowCount ?? 0;
+      return (result as any).rowsAffected ?? ids.length;
     } catch (error) {
       console.error('Error in updateSelectedAccLogStatuses:', error);
       throw new Error('Failed to update selected acc log statuses');
@@ -831,10 +790,7 @@ export class DatabaseStorage implements IStorage {
   async getUserByUsername(username: string): Promise<User | undefined> {
     await this.ensureSchema();
     try {
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.username, username));
+      const [user] = await db.select().from(users).where(eq(users.username, username));
       return user;
     } catch (error) {
       console.error('Error in getUserByUsername:', error);
@@ -842,7 +798,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // CloneReg (manual) DB implementations
   async getAllCloneRegs(): Promise<CloneReg[]> {
     await this.ensureSchema();
     try {
@@ -856,18 +811,19 @@ export class DatabaseStorage implements IStorage {
   async createCloneReg(insertCloneReg: InsertCloneReg): Promise<CloneReg> {
     await this.ensureSchema();
     try {
-      const championsArray = Array.isArray((insertCloneReg as any).champions)
-        ? ((insertCloneReg as any).champions as string[])
-        : (insertCloneReg.champion && String(insertCloneReg.champion).trim().length > 0
-            ? [String(insertCloneReg.champion).trim()]
-            : []);
-
+      const championsValue = typeof insertCloneReg.champions === 'string'
+        ? insertCloneReg.champions
+        : JSON.stringify(insertCloneReg.champions ?? []);
+      const skinsValue = typeof insertCloneReg.skins === 'string'
+        ? insertCloneReg.skins
+        : JSON.stringify(insertCloneReg.skins ?? []);
       const [row] = await db.insert(cloneRegs).values({
         username: insertCloneReg.username,
         password: insertCloneReg.password,
         champion: insertCloneReg.champion ?? null,
-        champions: championsArray,
-        skins: Array.isArray(insertCloneReg.skins) ? insertCloneReg.skins : [],
+        champions: championsValue,
+        skins: skinsValue,
+        updatedAt: nowIso(),
       }).returning();
       return row;
     } catch (error) {
@@ -879,15 +835,16 @@ export class DatabaseStorage implements IStorage {
   async updateCloneRegDetails(id: number, updates: UpdateCloneRegDetails): Promise<CloneReg | undefined> {
     await this.ensureSchema();
     try {
-      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      const patch: Record<string, unknown> = { updatedAt: nowIso() };
       if (updates.username !== undefined) patch.username = updates.username;
       if (updates.password !== undefined) patch.password = updates.password;
       if (Object.prototype.hasOwnProperty.call(updates, 'champion')) patch.champion = updates.champion ?? null;
-      if (Object.prototype.hasOwnProperty.call(updates as any, 'champions')) {
-        const champs = (updates as any).champions as unknown;
-        patch.champions = Array.isArray(champs) ? champs.map((c) => String(c).trim()).filter(Boolean) : [];
+      if (updates.champions !== undefined) {
+        patch.champions = typeof updates.champions === 'string' ? updates.champions : JSON.stringify(updates.champions);
       }
-      if (updates.skins !== undefined) patch.skins = Array.isArray(updates.skins) ? updates.skins : [];
+      if (updates.skins !== undefined) {
+        patch.skins = typeof updates.skins === 'string' ? updates.skins : JSON.stringify(updates.skins);
+      }
       const [row] = await db.update(cloneRegs).set(patch as any).where(eq(cloneRegs.id, id)).returning();
       return row || undefined;
     } catch (error) {
@@ -900,7 +857,7 @@ export class DatabaseStorage implements IStorage {
     await this.ensureSchema();
     try {
       const result = await db.delete(cloneRegs).where(eq(cloneRegs.id, id));
-      return (result.rowCount ?? 0) > 0;
+      return ((result as any).rowsAffected ?? 0) > 0;
     } catch (error) {
       console.error('Error in deleteCloneReg:', error);
       throw new Error('Failed to delete clonereg from database');
@@ -910,26 +867,18 @@ export class DatabaseStorage implements IStorage {
   async createLiveSession(session: InsertLiveSession): Promise<LiveSession> {
     await this.ensureSchema();
     try {
-      console.log('Creating live session with data:', session);
       const [liveSession] = await db
         .insert(liveSessions)
         .values({
           sessionName: session.sessionName,
           pricePerAccount: session.pricePerAccount,
-          updatedAt: new Date(),
+          createdAt: nowIso(),
+          updatedAt: nowIso(),
         })
         .returning();
-      console.log('Created live session:', liveSession);
       return liveSession;
     } catch (error) {
       console.error('Error in createLiveSession:', error);
-      console.error('Error details:', error instanceof Error ? error.stack : error);
-      
-      // Check if it's a table doesn't exist error
-      if (error instanceof Error && error.message.includes('does not exist')) {
-        throw new Error('Database table chưa được tạo. Vui lòng restart server để tạo tables tự động.');
-      }
-      
       throw new Error(`Failed to create live session: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -952,10 +901,7 @@ export class DatabaseStorage implements IStorage {
   async getAllLiveSessions(): Promise<LiveSession[]> {
     await this.ensureSchema();
     try {
-      return await db
-        .select()
-        .from(liveSessions)
-        .orderBy(desc(liveSessions.createdAt));
+      return await db.select().from(liveSessions).orderBy(desc(liveSessions.createdAt));
     } catch (error) {
       console.error('Error in getAllLiveSessions:', error);
       throw new Error('Failed to fetch live sessions from database');
@@ -967,7 +913,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const [revenueRecord] = await db
         .insert(revenueRecords)
-        .values(record)
+        .values({ ...record, createdAt: nowIso() })
         .returning();
       return revenueRecord;
     } catch (error) {
@@ -981,20 +927,19 @@ export class DatabaseStorage implements IStorage {
     try {
       const results = await db
         .select({
-          date: sql<string>`DATE(${revenueRecords.createdAt})`,
-          revenue: sql<number>`SUM(${revenueRecords.revenue})`,
-          accountCount: sql<number>`COUNT(*)`,
+          date: sql<string>`date(${revenueRecords.createdAt})`,
+          revenue: sql<number>`sum(${revenueRecords.revenue})`,
+          accountCount: sql<number>`count(*)`,
         })
         .from(revenueRecords)
         .where(
           and(
-            gte(revenueRecords.createdAt, startDate),
-            lte(revenueRecords.createdAt, endDate)
+            gte(revenueRecords.createdAt, startDate.toISOString()),
+            lte(revenueRecords.createdAt, endDate.toISOString())
           )
         )
-        .groupBy(sql`DATE(${revenueRecords.createdAt})`)
-        .orderBy(sql`DATE(${revenueRecords.createdAt})`);
-
+        .groupBy(sql`date(${revenueRecords.createdAt})`)
+        .orderBy(sql`date(${revenueRecords.createdAt})`);
       return results.map((row) => ({
         date: row.date,
         revenue: Number(row.revenue) || 0,
@@ -1011,12 +956,11 @@ export class DatabaseStorage implements IStorage {
     try {
       const [result] = await db
         .select({
-          totalRevenue: sql<number>`COALESCE(SUM(${revenueRecords.revenue}), 0)`,
-          accountCount: sql<number>`COUNT(*)`,
+          totalRevenue: sql<number>`coalesce(sum(${revenueRecords.revenue}), 0)`,
+          accountCount: sql<number>`count(*)`,
         })
         .from(revenueRecords)
         .where(eq(revenueRecords.sessionId, sessionId));
-
       return {
         totalRevenue: Number(result?.totalRevenue) || 0,
         accountCount: Number(result?.accountCount) || 0,
@@ -1035,7 +979,7 @@ let storageInstance: IStorage;
 if (useDatabaseStorage) {
   storageInstance = new DatabaseStorage();
 } else {
-  console.warn('Using in-memory storage. Set USE_DATABASE_STORAGE=true to enable PostgreSQL-backed storage.');
+  console.warn('Using in-memory storage. Set USE_DATABASE_STORAGE=true to enable Turso-backed storage.');
   storageInstance = new MemoryStorage();
 }
 

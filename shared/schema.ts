@@ -1,19 +1,19 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, serial, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const accounts = pgTable("accounts", {
-  id: serial("id").primaryKey(),
+export const accounts = sqliteTable("accounts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   lv: integer("lv").notNull().default(0),
-  status: boolean("status").notNull().default(true),
+  status: integer("status", { mode: "boolean" }).notNull().default(true),
   tag: text("tag"),
   champion: text("champion"),
-  // Store skins as JSONB array of strings for flexibility
-  skins: jsonb("skins").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+  // Store skins as JSON string
+  skins: text("skins").notNull().default("[]"),
+  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
 });
 
 export const insertAccountSchema = createInsertSchema(accounts).pick({
@@ -35,7 +35,8 @@ export const insertAccountSchema = createInsertSchema(accounts).pick({
   skins: z
     .array(z.string().trim())
     .max(200)
-    .default([]),
+    .default([])
+    .transform((arr) => JSON.stringify(arr)),
 });
 
 export const updateAccountSchema = createInsertSchema(accounts).pick({
@@ -56,7 +57,8 @@ export const updateAccountDetailsSchema = z.object({
     .union([z.string().trim().max(128), z.null()])
     .optional()
     .transform((v) => (typeof v === "string" && v.trim().length > 0 ? v.trim() : null)),
-  skins: z.array(z.string().trim()).max(200).optional(),
+  skins: z.array(z.string().trim()).max(200).optional()
+    .transform((arr) => arr ? JSON.stringify(arr) : undefined),
 });
 
 export type InsertAccount = z.infer<typeof insertAccountSchema>;
@@ -66,15 +68,15 @@ export type UpdateAccountDetails = z.infer<typeof updateAccountDetailsSchema>;
 export type Account = typeof accounts.$inferSelect;
 
 // CloneReg table for manual registry management screen
-export const cloneRegs = pgTable("clonereg", {
-  id: serial("id").primaryKey(),
+export const cloneRegs = sqliteTable("clonereg", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   champion: text("champion"),
-  // New: support multiple champions as JSONB array
-  champions: jsonb("champions").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
-  skins: jsonb("skins").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+  // New: support multiple champions as JSON string
+  champions: text("champions").notNull().default("[]"),
+  skins: text("skins").notNull().default("[]"),
+  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
 });
 
 export const insertCloneRegSchema = createInsertSchema(cloneRegs).pick({
@@ -92,8 +94,10 @@ export const insertCloneRegSchema = createInsertSchema(cloneRegs).pick({
     .optional()
     .transform((v) => (typeof v === "string" && v.trim().length > 0 ? v.trim() : null)),
   // Multiple champions support
-  champions: z.array(z.string().trim()).max(200).default([]),
-  skins: z.array(z.string().trim()).max(200).default([]),
+  champions: z.array(z.string().trim()).max(200).default([])
+    .transform((arr) => JSON.stringify(arr)),
+  skins: z.array(z.string().trim()).max(200).default([])
+    .transform((arr) => JSON.stringify(arr)),
 });
 
 export const updateCloneRegDetailsSchema = z.object({
@@ -104,21 +108,23 @@ export const updateCloneRegDetailsSchema = z.object({
     .union([z.string().trim().max(128), z.null()])
     .optional()
     .transform((v) => (typeof v === "string" && v.trim().length > 0 ? v.trim() : null)),
-  champions: z.array(z.string().trim()).max(200).optional(),
-  skins: z.array(z.string().trim()).max(200).optional(),
+  champions: z.array(z.string().trim()).max(200).optional()
+    .transform((arr) => arr ? JSON.stringify(arr) : undefined),
+  skins: z.array(z.string().trim()).max(200).optional()
+    .transform((arr) => arr ? JSON.stringify(arr) : undefined),
 });
 
 export type InsertCloneReg = z.infer<typeof insertCloneRegSchema>;
 export type UpdateCloneRegDetails = z.infer<typeof updateCloneRegDetailsSchema>;
 export type CloneReg = typeof cloneRegs.$inferSelect;
 
-export const accLogs = pgTable("acclogs", {
-  id: serial("id").primaryKey(),
+export const accLogs = sqliteTable("acclogs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   lv: integer("lv").notNull().default(0),
-  status: boolean("status").notNull().default(true),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+  status: integer("status", { mode: "boolean" }).notNull().default(true),
+  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
 });
 
 export const insertAccLogSchema = createInsertSchema(accLogs).pick({
@@ -137,8 +143,8 @@ export type InsertAccLog = z.infer<typeof insertAccLogSchema>;
 export type UpdateAccLog = z.infer<typeof updateAccLogSchema>;
 export type AccLog = typeof accLogs.$inferSelect;
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
 });
@@ -151,12 +157,12 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
-export const liveSessions = pgTable("live_sessions", {
-  id: serial("id").primaryKey(),
+export const liveSessions = sqliteTable("live_sessions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   sessionName: text("session_name").notNull(),
   pricePerAccount: integer("price_per_account").notNull(),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
 });
 
 export const insertLiveSessionSchema = createInsertSchema(liveSessions).pick({
@@ -169,13 +175,13 @@ export const insertLiveSessionSchema = createInsertSchema(liveSessions).pick({
 export type InsertLiveSession = z.infer<typeof insertLiveSessionSchema>;
 export type LiveSession = typeof liveSessions.$inferSelect;
 
-export const revenueRecords = pgTable("revenue_records", {
-  id: serial("id").primaryKey(),
+export const revenueRecords = sqliteTable("revenue_records", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   sessionId: integer("session_id").references(() => liveSessions.id),
   accountId: integer("account_id").references(() => accounts.id).notNull(),
   pricePerAccount: integer("price_per_account").notNull(),
   revenue: integer("revenue").notNull(),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
 });
 
 export const insertRevenueRecordSchema = createInsertSchema(revenueRecords).pick({

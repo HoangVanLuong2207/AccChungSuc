@@ -4,9 +4,15 @@ import { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
 import { insertAccountSchema, updateAccountSchema, updateAccountTagSchema, insertUserSchema, insertAccLogSchema, updateAccLogSchema, insertLiveSessionSchema, updateAccountDetailsSchema, insertCloneRegSchema, updateCloneRegDetailsSchema } from "@shared/schema";
 import { isAuthenticated } from "./auth";
+import { authLimiter, ALLOWED_ORIGINS } from "./index";
 import bcrypt from "bcrypt";
 import multer from "multer";
 import { z } from "zod";
+
+// Account lockout tracking
+const loginAttempts = new Map<string, { count: number; lastAttempt: Date }>();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -136,33 +142,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send("pong");
   });
 
-  // Auth routes
-  app.post("/api/login", async (req, res) => {
-    console.log('--- Login Request Received ---');
+  // Auth routes with rate limiting and account lockout
+  app.post("/api/login", authLimiter, async (req, res) => {
     try {
       const { username, password } = insertUserSchema.parse(req.body);
-      console.log(`Attempting login for user: ${username}`);
+
+      // Check for account lockout
+      const attemptKey = username.toLowerCase();
+      const attempts = loginAttempts.get(attemptKey);
+      if (attempts) {
+        const timeSinceLast = Date.now() - attempts.lastAttempt.getTime();
+        if (attempts.count >= MAX_LOGIN_ATTEMPTS && timeSinceLast < LOCKOUT_DURATION_MS) {
+          const remainingMinutes = Math.ceil((LOCKOUT_DURATION_MS - timeSinceLast) / 60000);
+          return res.status(429).json({
+            message: `Tài khoản bị khóa tạm thời. Vui lòng thử lại sau ${remainingMinutes} phút`
+          });
+        }
+        // Reset if lockout period has passed
+        if (timeSinceLast >= LOCKOUT_DURATION_MS) {
+          loginAttempts.delete(attemptKey);
+        }
+      }
 
       const user = await storage.getUserByUsername(username);
       if (!user) {
-        console.log(`User not found: ${username}`);
+        // Track failed attempt
+        const current = loginAttempts.get(attemptKey) || { count: 0, lastAttempt: new Date() };
+        loginAttempts.set(attemptKey, { count: current.count + 1, lastAttempt: new Date() });
         return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không đúng" });
       }
-      console.log(`User found: ${user.username}`);
 
       const isPasswordMatch = await bcrypt.compare(password, user.password);
       if (!isPasswordMatch) {
-        console.log(`Password mismatch for user: ${username}`);
+        // Track failed attempt
+        const current = loginAttempts.get(attemptKey) || { count: 0, lastAttempt: new Date() };
+        loginAttempts.set(attemptKey, { count: current.count + 1, lastAttempt: new Date() });
         return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không đúng" });
       }
-      console.log(`Password match for user: ${username}`);
+
+      // Clear failed attempts on successful login
+      loginAttempts.delete(attemptKey);
 
       req.session.userId = user.id;
-      console.log(`Session created for user ID: ${user.id}`);
       res.json({ id: user.id, username: user.username });
 
     } catch (error) {
-      console.error('!!! SERVER LOGIN ERROR !!!:', error);
+      console.error('Login error:', error);
       res.status(500).json({ message: "Lỗi máy chủ nội bộ" });
     }
   });
@@ -1131,7 +1156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin: isProduction ? true : true, // Allow all origins (will be restricted by credentials)
+      origin: isProduction ? ALLOWED_ORIGINS : true, // Restrict origins in production
       methods: ["GET", "POST"],
       credentials: true,
     },
@@ -1143,14 +1168,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     pingInterval: 25000,
     // Enable compatibility with reverse proxies
     allowUpgrades: true,
-    // For Render and other cloud platforms
-    ...(isProduction && {
-      // Trust proxy headers
-      cookie: {
-        sameSite: "lax",
-        secure: true,
-      },
-    }),
+    // For Render and other cloud platforms - disable cookie for Socket.IO
+    cookie: false,
   });
 
   console.log(`[Socket.IO] Socket.IO server initialized successfully`);
