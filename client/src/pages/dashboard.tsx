@@ -1,5 +1,5 @@
 ﻿
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { eachDayOfInterval, format, isAfter, startOfDay, subDays } from "date-fns";
@@ -832,7 +832,7 @@ interface OverviewCardsProps {
   currentSessionRevenue?: { session: { sessionName: string; pricePerAccount: number } | null; revenue: { totalRevenue: number; accountCount: number } } | null;
 }
 
-function OverviewCards({
+const OverviewCards = React.memo(function OverviewCards({
   accountStats,
   logStats,
   dateFilter,
@@ -865,8 +865,7 @@ function OverviewCards({
         ? "Chưa gắn tag"
         : `Tag ${tagFilter}`;
 
-  // Debug log
-  console.log('[Frontend] OverviewCards rendering, currentSessionRevenue:', currentSessionRevenue);
+  // Debug log removed to prevent console spam
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -971,7 +970,7 @@ function OverviewCards({
       )}
     </div>
   );
-}
+});
 
 interface StatusBreakdownChartProps {
   accountStats?: SummaryStats | null;
@@ -1909,16 +1908,23 @@ export default function Dashboard() {
     },
   });
 
-  const currentSessionRevenueQuery = useQuery<{ session: { id: number; sessionName: string; pricePerAccount: number; createdAt: Date; updatedAt: Date } | null; revenue: { totalRevenue: number; accountCount: number } }>({
+  const currentSessionRevenueQuery = useQuery<{ session: { id: number; sessionName: string; pricePerAccount: number; createdAt: Date; updatedAt: Date } | null; revenue: { totalRevenue: number; accountCount: number } } | null>({
     queryKey: ["/api/revenue/current-session"],
     queryFn: async () => {
-      const data = await apiRequest<{ session: { id: number; sessionName: string; pricePerAccount: number; createdAt: Date; updatedAt: Date } | null; revenue: { totalRevenue: number; accountCount: number } }>("GET", "/api/revenue/current-session");
-      console.log('[Frontend] Current session revenue:', data);
-      return data;
+      try {
+        const data = await apiRequest<{ session: { id: number; sessionName: string; pricePerAccount: number; createdAt: Date; updatedAt: Date } | null; revenue: { totalRevenue: number; accountCount: number } }>("GET", "/api/revenue/current-session");
+        return data;
+      } catch (error) {
+        // Return null on 401 or other errors to prevent infinite retries
+        console.warn('[Revenue] Failed to fetch current session revenue, returning default');
+        return null;
+      }
     },
-    refetchInterval: 2000, // Refetch every 2 seconds to get updated revenue
+    refetchInterval: 30000, // Refetch every 30 seconds to reduce load when auth might fail
     refetchOnWindowFocus: true,
     refetchOnMount: true,
+    retry: false,
+    staleTime: 10000,
   });
 
   const accountMutations = useEntityMutations("accounts", toast, queryClient);
