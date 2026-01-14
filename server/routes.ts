@@ -184,7 +184,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       loginAttempts.delete(attemptKey);
 
       req.session.userId = user.id;
-      res.json({ id: user.id, username: user.username });
+
+      // Explicitly save session before responding to ensure cookie is set
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err);
+          return res.status(500).json({ message: "Không thể lưu session" });
+        }
+        console.log('Session saved successfully for user:', user.username);
+        res.json({ id: user.id, username: user.username });
+      });
 
     } catch (error) {
       console.error('Login error:', error);

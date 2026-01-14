@@ -51,6 +51,7 @@ export const authLimiter = rateLimit({
 
 // CORS configuration for cross-origin requests (Firebase -> Render)
 export const ALLOWED_ORIGINS = [
+  'https://accchungsuc.onrender.com',
   'https://accchungsuc.web.app',
   'https://accchungsuc.firebaseapp.com',
   'http://localhost:5173',
