@@ -198,3 +198,12 @@ export const insertRevenueRecordSchema = createInsertSchema(revenueRecords).pick
 
 export type InsertRevenueRecord = z.infer<typeof insertRevenueRecordSchema>;
 export type RevenueRecord = typeof revenueRecords.$inferSelect;
+
+// Sessions table for persistent session storage
+export const sessions = sqliteTable("sessions", {
+  sid: text("sid").primaryKey(),
+  sess: text("sess").notNull(),
+  expire: integer("expire").notNull(),
+});
+
+export type Session = typeof sessions.$inferSelect;

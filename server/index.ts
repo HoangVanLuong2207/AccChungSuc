@@ -78,11 +78,11 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Session configuration - using MemoryStore (simpler for Turso setup)
-// Note: Sessions will be lost on server restart. For production persistence,
-// consider using a compatible session store like Redis.
-console.log('Using in-memory session store');
-const sessionStore = new session.MemoryStore();
+// Session configuration - using Turso database for persistence
+// Sessions persist across server restarts
+import { TursoSessionStore } from "./session-store";
+console.log('Using Turso database session store');
+const sessionStore = new TursoSessionStore();
 
 app.use(session({
   store: sessionStore,
